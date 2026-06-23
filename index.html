@@ -12,13 +12,18 @@
 <body>
 
     <div id="sidebar">
-        <h2>Control Panel</h2>
-        <hr>
-        <div class="search-box">
-            <label for="search">Caută locație (GeoNames):</label>
-            <input type="text" id="search" placeholder="Introduceți orașul...">
-        </div>
+    <h2>Control Panel</h2>
+    <hr>
+    <div class="search-box">
+        <label for="search">Caută locație (OSM):</label>
+        <input type="text" id="search" placeholder="Introduceți orașul...">
     </div>
+    <hr>
+    <div class="upload-box">
+        <label for="json-file"><b>Încarcă produse satelitare (JSON):</b></label>
+        <input type="file" id="json-file" accept=".json">
+    </div>
+</div>
 
     <div id="map"></div>
     <div id="mouse-position" class="mouse-position-box"></div>
