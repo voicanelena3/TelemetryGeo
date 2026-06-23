@@ -114,3 +114,61 @@ html, body {
     background-color: #38bdf8;
     color: #0f172a;
 }
+
+.draw-box {
+    margin-top: 15px;
+    text-align: left;
+}
+
+.draw-box label {
+    font-size: 13px;
+    color: #94a3b8;
+    display: block;
+    margin-bottom: 8px;
+    text-align: center;
+}
+
+.draw-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+}
+
+#draw-type {
+    flex-grow: 1;
+    padding: 10px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#draw-type:focus {
+    border-color: #38bdf8;
+}
+
+#draw-type option {
+    background: #1e293b;
+    color: #fff;
+}
+
+#clear-draw {
+    background-color: rgba(239, 68, 68, 0.2); /* Roșu subtil */
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    border-radius: 6px;
+    padding: 10px 15px;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#clear-draw:hover {
+    background-color: #ef4444; /* Roșu solid la hover */
+    color: #fff;
+}

@@ -208,4 +208,81 @@ window.onload = function() {
             });
         }
     });
+
+    const drawSource = new ol.source.Vector();
+    const drawLayer = new ol.layer.Vector({
+        source: drawSource,
+        style: new ol.style.Style({
+            fill: new ol.style.Fill({
+                color: 'rgba(255, 204, 51, 0.3)'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#ffcc33',
+                width: 2.5
+            }),
+            image: new ol.style.Circle({
+                radius: 6,
+                fill: new ol.style.Fill({
+                    color: '#ffcc33'
+                }),
+                stroke: new ol.style.Stroke({
+                    color: '#1a1c1e',
+                    width: 1.5
+                })
+            })
+        })
+    });
+    map.addLayer(drawLayer);
+
+    let drawInteraction;
+    let snapInteraction;
+    const drawTypeSelect = document.getElementById('draw-type');
+    const clearDrawButton = document.getElementById('clear-draw');
+
+    function addDrawInteraction() {
+        const value = drawTypeSelect.value;
+        
+        if (value !== 'None') {
+            drawInteraction = new ol.interaction.Draw({
+                source: drawSource,
+                type: value
+            });
+            map.addInteraction(drawInteraction);
+            
+            snapInteraction = new ol.interaction.Snap({
+                source: drawSource,
+                pixelTolerance: 15
+            });
+            map.addInteraction(snapInteraction);
+
+            document.getElementById('map').style.cursor = 'crosshair';
+        } else {
+            document.getElementById('map').style.cursor = 'default';
+        }
+    }
+
+    drawTypeSelect.addEventListener('change', function () {
+        if (drawInteraction) {
+            map.removeInteraction(drawInteraction);
+        }
+        if (snapInteraction) {
+            map.removeInteraction(snapInteraction);
+        }
+        addDrawInteraction();
+    });
+
+    clearDrawButton.addEventListener('click', function() {
+        if(confirm("Ești sigur că vrei să ștergi desenele de pe hartă? Datele satelitare vor fi păstrate.")) {
+            if (drawInteraction) {
+                drawInteraction.abortDrawing();
+            }
+            if (typeof drawSource !== 'undefined') {
+                drawSource.clear();
+            }
+            
+            console.log("Desenele manuale au fost șterse, datele din fișier au rămas intacte.");
+        }
+    });
+
+    addDrawInteraction();
 };

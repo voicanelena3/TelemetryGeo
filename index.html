@@ -1,34 +1,47 @@
-<!DOCTYPE html>
-<html lang="ro">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analiză Date Satelitare</title>
-    
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" type="text/css">
-    <link rel="stylesheet" href="style.css">
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-</head>
-<body>
+    <!DOCTYPE html>
+    <html lang="ro">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Analiză Date Satelitare</title>
+        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" type="text/css">
+        <link rel="stylesheet" href="style.css">
+        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    </head>
+    <body>
 
-    <div id="sidebar">
-    <h2>Control Panel</h2>
-    <hr>
-    <div class="search-box">
-        <label for="search">Caută locație (OSM):</label>
-        <input type="text" id="search" placeholder="Introduceți orașul...">
+        <div id="sidebar">
+        <h2>Control Panel</h2>
+        <hr>
+        <div class="search-box">
+            <label for="search">Caută locație (OSM):</label>
+            <input type="text" id="search" placeholder="Introduceți orașul...">
+        </div>
+        <hr>
+        <div class="upload-box">
+            <label for="json-file"><b>Încarcă produse satelitare (JSON):</b></label>
+            <input type="file" id="json-file" accept=".json">
+        </div>
+        <hr>
+        <div class="draw-box">
+            <label for="draw-type"><b>Desenează pe hartă:</b></label>
+            <div class="draw-controls">
+                <select id="draw-type">
+                    <option value="None">Navigare liberă</option>
+                    <option value="Point">Punct</option>
+                    <option value="LineString">Linie</option>
+                    <option value="Polygon">Poligon</option>
+                </select>
+                <button id="clear-draw" type="button" title="Șterge toate desenele">Șterge</button>
+            </div>
+        </div>
     </div>
-    <hr>
-    <div class="upload-box">
-        <label for="json-file"><b>Încarcă produse satelitare (JSON):</b></label>
-        <input type="file" id="json-file" accept=".json">
-    </div>
-</div>
 
-    <div id="map"></div>
-    <div id="mouse-position" class="mouse-position-box"></div>
+        <div id="map"></div>
+        <div id="mouse-position" class="mouse-position-box"></div>
 
-    <script src="lib/ol.js"></script>
-    <script src="js/app.js"></script>
-</body>
-</html>
+        <script src="lib/ol.js"></script>
+        <script src="js/app.js"></script>
+    </body>
+    </html>
