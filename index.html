@@ -1,31 +1,56 @@
-    <!DOCTYPE html>
-    <html lang="ro">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Analiză Date Satelitare</title>
-        
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" type="text/css">
-        <link rel="stylesheet" href="style.css">
-        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    </head>
-    <body>
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analiză Date Satelitare</title>
 
-        <div id="sidebar">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" type="text/css">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+</head>
+<body>
+
+    <div id="sidebar">
         <h2>Control Panel</h2>
-        <hr>
+
         <div class="search-box">
-            <label for="search">Caută locație (OSM):</label>
+            <label for="search">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                Caută locație
+            </label>
             <input type="text" id="search" placeholder="Introduceți orașul...">
         </div>
+
         <hr>
+
         <div class="upload-box">
-            <label for="json-file"><b>Încarcă produse satelitare (JSON):</b></label>
+            <label for="json-file">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <b>Încarcă produse satelitare (JSON)</b>
+            </label>
             <input type="file" id="json-file" accept=".json">
         </div>
+
         <hr>
+
         <div class="draw-box">
-            <label for="draw-type"><b>Desenează pe hartă:</b></label>
+            <label for="draw-type">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+                    <path d="M2 2l7.586 7.586"></path>
+                    <circle cx="11" cy="11" r="2"></circle>
+                </svg>
+                <b>Desenează pe hartă</b>
+            </label>
             <div class="draw-controls">
                 <select id="draw-type">
                     <option value="None">Navigare liberă</option>
@@ -33,15 +58,32 @@
                     <option value="LineString">Linie</option>
                     <option value="Polygon">Poligon</option>
                 </select>
-                <button id="clear-draw" type="button" title="Șterge toate desenele">Șterge</button>
+                <button id="clear-draw" type="button" title="Șterge toate desenele">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                        <path d="M10 11v6"></path>
+                        <path d="M14 11v6"></path>
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>
+                    </svg>
+                    Șterge
+                </button>
             </div>
         </div>
     </div>
 
-        <div id="map"></div>
-        <div id="mouse-position" class="mouse-position-box"></div>
+    <div id="map">
+        <!-- Re-center button: sits top-right inside map, next to fullscreen -->
+        <button id="btn-recenter" disabled title="Revenire la datele satelitare">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+            </svg>
+        </button>
+    </div>
+    <div id="mouse-position" class="mouse-position-box"></div>
 
-        <script src="lib/ol.js"></script>
-        <script src="js/app.js"></script>
-    </body>
-    </html>
+    <script src="lib/ol.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
