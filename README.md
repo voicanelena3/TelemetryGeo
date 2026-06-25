@@ -14,3 +14,18 @@ intelligent dual-parsing engine that automatically identifies wheter the file co
 instantly mapping the shapes into a dedicated secondary vector layer
 -Geocoding: Features an integrated search bar powered by the global GeoNames API. When a user types any location, the system queries the web service
 in the background, extracts the mathematical coordinates, and performs a fluid flight animation (pan&zoom) to the destination.
+
+### Prerequisites
+You don't need any heavy backend frameworks or databases to run the core interface. All you need is:
+* A modern web browser (Chrome, Firefox, Edge, or Safari).
+* A local development server (such as VS Code's **Live Server** extension, Python's built-in HTTP server, or Node.js `http-server`).
+
+### Step-by-Step Setup
+
+1. **Clone the Repository**
+   Clone this project to your local machine using Git:
+   ```bash
+   git clone [https://github.com/YOUR-USERNAME/YOUR-REPOSITORY-NAME.git](https://github.com/YOUR-USERNAME/YOUR-REPOSITORY-NAME.git)
+   cd YOUR-REPOSITORY-NAME
+
+   
