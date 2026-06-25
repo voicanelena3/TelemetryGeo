@@ -62,6 +62,7 @@ window.onload = function () {
         zIndex: 100
     });
     map.addLayer(intersectionLayer);
+
     let uploadedExtent = null;
 
     $('#json-file').on('change', function (e) {
@@ -211,6 +212,54 @@ window.onload = function () {
         fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.3)' })
     });
 
+    function isIntersectable(feature) {
+        return feature.getGeometry().getType() !== 'Point';
+    }
+
+    function featureToPolygonGeoJSON(feature) {
+        const geomType = feature.getGeometry().getType();
+
+        if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
+            return geojsonFormat.writeFeatureObject(feature, {
+                featureProjection: map.getView().getProjection(),
+                dataProjection: 'EPSG:4326'
+            });
+        }
+
+        const geom4326 = feature.getGeometry().clone().transform(
+            map.getView().getProjection(),
+            'EPSG:4326'
+        );
+
+        let ring;
+        if (geomType === 'LineString') {
+            ring = geom4326.getCoordinates();
+        } else if (geomType === 'MultiPoint') {
+            ring = geom4326.getCoordinates();
+        } else {
+            return null;
+        }
+
+        if (ring.length < 3) {
+            return null;
+        }
+
+        const first = ring[0];
+        const last = ring[ring.length - 1];
+        if (first[0] !== last[0] || first[1] !== last[1]) {
+            ring = ring.concat([first]);
+        }
+
+        return turf.polygon([ring]);
+    }
+
+    function clearSelection() {
+        selectedFeaturesArray.forEach(f => f.setStyle(null));
+        selectedFeaturesArray = [];
+        intersectionSource.clear();
+        removeStatsPanel();
+    }
+
     function removeStatsPanel() {
         const panel = document.getElementById('stats-panel');
         if (panel) panel.classList.add('hidden');
@@ -231,80 +280,75 @@ window.onload = function () {
     }
 
     map.on('click', function (e) {
+        if (drawTypeSelect.value !== 'None') return;
+
         const clickedFeature = map.forEachFeatureAtPixel(e.pixel, function (feature, layer) {
             if (layer === intersectionLayer) return null;
             return feature;
         });
 
-        if (clickedFeature) {
-            if (selectedFeaturesArray.includes(clickedFeature)) {
-                clickedFeature.setStyle(null);
-                selectedFeaturesArray = selectedFeaturesArray.filter(f => f !== clickedFeature);
-                intersectionSource.clear();
-                removeStatsPanel();
+        if (!clickedFeature) {
+            clearSelection();
+            return;
+        }
+
+        if (selectedFeaturesArray.includes(clickedFeature)) {
+            clickedFeature.setStyle(null);
+            selectedFeaturesArray = selectedFeaturesArray.filter(f => f !== clickedFeature);
+            intersectionSource.clear();
+            removeStatsPanel();
+            return;
+        }
+
+        if (!isIntersectable(clickedFeature)) {
+            alert("Un singur punct nu are o suprafață care poate fi intersectată. Desenează o linie cu cel puțin 3 puncte sau un poligon.");
+            return;
+        }
+
+        if (selectedFeaturesArray.length === 2) {
+            clearSelection();
+        }
+
+        selectedFeaturesArray.push(clickedFeature);
+        clickedFeature.setStyle(selectedStyle);
+
+        if (selectedFeaturesArray.length === 2) {
+            const geojson1 = featureToPolygonGeoJSON(selectedFeaturesArray[0]);
+            const geojson2 = featureToPolygonGeoJSON(selectedFeaturesArray[1]);
+
+            if (!geojson1 || !geojson2) {
+                alert("Geometria selectată are prea puține puncte pentru a forma o suprafață (minim 3 puncte distincte).");
+                clearSelection();
                 return;
             }
 
-            if (selectedFeaturesArray.length === 2) {
-                selectedFeaturesArray.forEach(f => f.setStyle(null));
-                selectedFeaturesArray = [];
-                intersectionSource.clear();
-                removeStatsPanel();
-            }
+            try {
+                const intersectedGeoJSON = turf.intersect(geojson1, geojson2);
 
-            selectedFeaturesArray.push(clickedFeature);
-            clickedFeature.setStyle(selectedStyle);
+                if (intersectedGeoJSON) {
+                    const intersectionFeature = geojsonFormat.readFeature(intersectedGeoJSON, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: map.getView().getProjection()
+                    });
+                    intersectionSource.addFeatures([intersectionFeature]);
 
-            if (selectedFeaturesArray.length === 2) {
-                const feature1 = selectedFeaturesArray[0];
-                const feature2 = selectedFeaturesArray[1];
+                    const areaInSquareMeters = turf.area(intersectedGeoJSON);
+                    const areaInSquareKm = areaInSquareMeters / 1000000;
+                    const areaPolygon1 = turf.area(geojson1);
+                    const areaPolygon2 = turf.area(geojson2);
+                    const overlapPercent1 = (areaInSquareMeters / areaPolygon1) * 100;
+                    const overlapPercent2 = (areaInSquareMeters / areaPolygon2) * 100;
 
-                const geojson1 = geojsonFormat.writeFeatureObject(feature1, {
-                    featureProjection: map.getView().getProjection(),
-                    dataProjection: 'EPSG:4326'
-                });
-                const geojson2 = geojsonFormat.writeFeatureObject(feature2, {
-                    featureProjection: map.getView().getProjection(),
-                    dataProjection: 'EPSG:4326'
-                });
-
-                try {
-                    const intersectedGeoJSON = turf.intersect(geojson1, geojson2);
-
-                    if (intersectedGeoJSON) {
-                        const intersectionFeature = geojsonFormat.readFeature(intersectedGeoJSON, {
-                            dataProjection: 'EPSG:4326',
-                            featureProjection: map.getView().getProjection()
-                        });
-                        intersectionSource.addFeatures([intersectionFeature]);
-
-                        const areaInSquareMeters = turf.area(intersectedGeoJSON);
-                        const areaInSquareKm = areaInSquareMeters / 1000000;
-                        const areaPolygon1 = turf.area(geojson1);
-                        const areaPolygon2 = turf.area(geojson2);
-                        const overlapPercent1 = (areaInSquareMeters / areaPolygon1) * 100;
-                        const overlapPercent2 = (areaInSquareMeters / areaPolygon2) * 100;
-
-                        updateAndShowStatsPanel(areaInSquareKm, overlapPercent1, overlapPercent2);
-                    } else {
-                        alert("Poligoanele selectate nu se intersectează.");
-                        selectedFeaturesArray.forEach(f => f.setStyle(null));
-                        selectedFeaturesArray = [];
-                        removeStatsPanel();
-                    }
-                } catch (err) {
-                    console.error(err);
-                    alert("Eroare la calcularea matematică a intersecției.");
-                    selectedFeaturesArray.forEach(f => f.setStyle(null));
-                    selectedFeaturesArray = [];
-                    removeStatsPanel();
+                    updateAndShowStatsPanel(areaInSquareKm, overlapPercent1, overlapPercent2);
+                } else {
+                    alert("Formele selectate nu se intersectează.");
+                    clearSelection();
                 }
+            } catch (err) {
+                console.error(err);
+                alert("Eroare la calcularea matematică a intersecției.");
+                clearSelection();
             }
-        } else {
-            selectedFeaturesArray.forEach(f => f.setStyle(null));
-            selectedFeaturesArray = [];
-            intersectionSource.clear();
-            removeStatsPanel();
         }
     });
 
@@ -350,16 +394,18 @@ window.onload = function () {
     });
 
     clearDrawButton.addEventListener('click', function () {
-        if (confirm("Ești sigur că vrei să ștergi desenele de pe hartă? Datele satelitare vor fi păstrate.")) {
+        if (confirm("Ești sigur că vrei să ștergi desenele și rezultatele de pe hartă?")) {
             if (drawInteraction) drawInteraction.abortDrawing();
-            if (typeof drawSource !== 'undefined') drawSource.clear();
-            console.log("Desenele manuale au fost șterse, datele din fișier au rămas intacte.");
+            drawSource.clear();
+            satelliteSource.clear();
+            clearSelection();
+            console.log("Desenele, intersecțiile și datele Copernicus au fost șterse.");
         }
     });
 
     addDrawInteraction();
 
-   document.getElementById('btn-fetch-copernicus').addEventListener('click', async function() {
+    document.getElementById('btn-fetch-copernicus').addEventListener('click', async function() {
         const button = $(this);
         const originalText = button.text();
         
@@ -377,9 +423,7 @@ window.onload = function () {
                 featureProjection: 'EPSG:4326'
             });
             
-            zonaWKT = wktFormatInternal.writeGeometry(geometry, {
-                decimals: 4
-            });
+            zonaWKT = wktFormatInternal.writeGeometry(geometry, { decimals: 4 });
         }
 
         if (!zonaWKT) {
@@ -398,9 +442,7 @@ window.onload = function () {
 
         try {
             userGeoJSON = turf.buffer(userGeoJSON, 0, { units: 'kilometers' });
-            if (userGeoJSON.type === 'Feature') {
-                userGeoJSON = userGeoJSON.geometry;
-            }
+            if (userGeoJSON.type === 'Feature') userGeoJSON = userGeoJSON.geometry;
         } catch (bufferErr) {
             console.warn("Validarea buffer-ului a eșuat pentru poligonul utilizatorului:", bufferErr);
         }
@@ -410,14 +452,10 @@ window.onload = function () {
 
             if (geometryWKT) {
                 try {
-                    if (geometryWKT.includes(';')) {
-                        geometryWKT = geometryWKT.split(';').pop();
-                    }
-                    
+                    if (geometryWKT.includes(';')) geometryWKT = geometryWKT.split(';').pop();
+
                     const wktMatch = geometryWKT.match(/(POLYGON|MULTIPOLYGON)\s*\(.+\)/i);
-                    if (wktMatch) {
-                        geometryWKT = wktMatch[0];
-                    }
+                    if (wktMatch) geometryWKT = wktMatch[0];
 
                     geometryWKT = geometryWKT.replace(/[\r\n\t]/g, ' ')
                                              .replace(/\s+/g, ' ')
@@ -428,29 +466,20 @@ window.onload = function () {
                     const sceneFeatureInternal = wktReader.readFeature(geometryWKT);
                     if (sceneFeatureInternal) {
                         let sceneGeoJSON = geojsonFormat.writeGeometryObject(sceneFeatureInternal.getGeometry());
-                        
+
                         try {
                             sceneGeoJSON = turf.buffer(sceneGeoJSON, 0, { units: 'kilometers' });
-                            if (sceneGeoJSON.type === 'Feature') {
-                                sceneGeoJSON = sceneGeoJSON.geometry;
-                            }
-                        } catch (sceneBufErr) {
-                      
-                        }
-                        
-                    
+                            if (sceneGeoJSON.type === 'Feature') sceneGeoJSON = sceneGeoJSON.geometry;
+                        } catch (sceneBufErr) {}
+
                         const intersectedGeoJSON = turf.intersect(userGeoJSON, sceneGeoJSON);
-                        
+
                         if (intersectedGeoJSON) {
                             const clippedFeature = geojsonFormat.readFeature(intersectedGeoJSON, {
                                 dataProjection: 'EPSG:4326',
                                 featureProjection: map.getView().getProjection()
                             });
-
-                            clippedFeature.setProperties({
-                                name: product.Name,
-                                id: product.Id
-                            });
+                            clippedFeature.setProperties({ name: product.Name, id: product.Id });
                             copernicusFeatures.push(clippedFeature);
                         }
                     }
@@ -462,7 +491,6 @@ window.onload = function () {
 
         if (copernicusFeatures.length > 0) {
             satelliteSource.addFeatures(copernicusFeatures);
-            
             map.getView().fit(satelliteSource.getExtent(), {
                 duration: 1200,
                 padding: [50, 50, 50, 50]
