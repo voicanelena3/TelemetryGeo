@@ -434,19 +434,12 @@ window.onload = function () {
         });
 
         const url = URL.createObjectURL(blob);
-
         const link = document.createElement("a");
-
         link.href = url;
-
         link.download = "geometrii.geojson";
-
         document.body.appendChild(link);
-
         link.click();
-
         document.body.removeChild(link);
-
         URL.revokeObjectURL(url);
 
     });
@@ -479,60 +472,38 @@ window.onload = function () {
 
         button.prop('disabled', true).text('Se încarcă...');
         satelliteSource.clear();
-
-        const products = await fetchCopernicusProducts('SENTINEL-2', 15, zonaWKT);
-        const copernicusFeatures = [];
-        const wktReader = new ol.format.WKT();
-
         let userGeoJSON = geojsonFormat.writeGeometryObject(userGeometry4326);
 
         try {
             userGeoJSON = turf.buffer(userGeoJSON, 0, { units: 'kilometers' });
-            if (userGeoJSON.type === 'Feature') userGeoJSON = userGeoJSON.geometry;
+
+            if (userGeoJSON.type === 'Feature') {
+                userGeoJSON = userGeoJSON.geometry;
+            }
         } catch (bufferErr) {
-            console.warn("Validarea buffer-ului a eșuat pentru poligonul utilizatorului:", bufferErr);
+            console.warn(bufferErr);
         }
 
+        let products;
+        try {
+            products = await searchSentinelProducts(userGeoJSON);
+        } catch (err) {
+            console.error(err);
+            alert("Nu s-au putut obține produsele Sentinel Hub.");
+            button.prop('disabled', false).text(originalText);
+            return;
+        }
+
+        const copernicusFeatures = [];
+
         products.forEach(function (product) {
-            let geometryWKT = product.Footprint || product["OData.CSC.Geometry"] || product.Geometry;
+            const feature = geojsonFormat.readFeature(product, {
+                dataProjection: "EPSG:4326",
+                featureProjection: map.getView().getProjection()
+            });
 
-            if (geometryWKT) {
-                try {
-                    if (geometryWKT.includes(';')) geometryWKT = geometryWKT.split(';').pop();
-
-                    const wktMatch = geometryWKT.match(/(POLYGON|MULTIPOLYGON)\s*\(.+\)/i);
-                    if (wktMatch) geometryWKT = wktMatch[0];
-
-                    geometryWKT = geometryWKT.replace(/[\r\n\t]/g, ' ')
-                        .replace(/\s+/g, ' ')
-                        .replace(/\(\s+/g, '(')
-                        .replace(/\s+\)/g, ')')
-                        .trim();
-
-                    const sceneFeatureInternal = wktReader.readFeature(geometryWKT);
-                    if (sceneFeatureInternal) {
-                        let sceneGeoJSON = geojsonFormat.writeGeometryObject(sceneFeatureInternal.getGeometry());
-
-                        try {
-                            sceneGeoJSON = turf.buffer(sceneGeoJSON, 0, { units: 'kilometers' });
-                            if (sceneGeoJSON.type === 'Feature') sceneGeoJSON = sceneGeoJSON.geometry;
-                        } catch (sceneBufErr) { }
-
-                        const intersectedGeoJSON = turf.intersect(userGeoJSON, sceneGeoJSON);
-
-                        if (intersectedGeoJSON) {
-                            const clippedFeature = geojsonFormat.readFeature(intersectedGeoJSON, {
-                                dataProjection: 'EPSG:4326',
-                                featureProjection: map.getView().getProjection()
-                            });
-                            clippedFeature.setProperties({ name: product.Name, id: product.Id });
-                            copernicusFeatures.push(clippedFeature);
-                        }
-                    }
-                } catch (err) {
-                    console.error("Eroare parser WKT sau intersecție pentru produsul:", product.Name, err);
-                }
-            }
+            feature.setProperties(product.properties);
+            copernicusFeatures.push(feature);
         });
 
         if (copernicusFeatures.length > 0) {
