@@ -545,3 +545,81 @@ html, body {
     cursor: not-allowed;
     opacity: 0.6;
 }
+
+#sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+#sidebar::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 16px;
+}
+
+#sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.08); 
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+#sidebar::-webkit-scrollbar-thumb:hover {
+    background: rgba(56, 189, 248, 0.3);
+}
+
+#stats-panel {
+    position: absolute;
+    top: 80px;          
+    right: 20px;         
+    background-color: rgba(20, 29, 46, 0.94);
+    color: #ffffff;
+    padding: 18px;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    font-family: "Segoe UI", Roboto, sans-serif;
+    z-index: 1000;
+    width: 280px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    display: block;
+}
+
+#sidebar h2, 
+#sidebar .copernicus-title,
+#sidebar text { 
+    text-align: center;
+}
+
+#sidebar [id*="copernicus"], #sidebar h3 {
+    text-align: center;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.btn-api {
+    background-color: #3388ff;
+    color: #ffffff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: block;      
+    margin: 14px auto;   
+    width: 85%;          
+    text-align: center;
+}
+
+.btn-api:hover {
+    background-color: #2266cc;
+    box-shadow: 0 0 12px rgba(51, 136, 255, 0.4);
+}
+.ol-zoom {
+    left: 440px !important; 
+    top: 20px !important;  
+}
+
+.ol-zoomslider {
+    left: 440px !important;
+    top: 100px !important;
+}
