@@ -680,3 +680,21 @@ html, body {
 .legend-draw{
     background:#ffcc33;
 }
+
+.export-box {
+    margin-top: 18px;
+}
+
+.export-box label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff;
+    margin-bottom: 10px;
+}
+
+.export-box svg {
+    width: 18px;
+    height: 18px;
+    stroke: #4da6ff;
+}

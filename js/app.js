@@ -405,10 +405,56 @@ window.onload = function () {
 
     addDrawInteraction();
 
-    document.getElementById('btn-fetch-copernicus').addEventListener('click', async function() {
+    document.getElementById("btn-export-geojson").addEventListener("click", function () {
+
+        const features = drawSource.getFeatures();
+
+        if (features.length === 0) {
+
+            alert("Nu există geometrii desenate.");
+
+            return;
+
+        }
+
+        const geojsonFormat = new ol.format.GeoJSON();
+
+        const geojson = geojsonFormat.writeFeatures(features, {
+
+            featureProjection: map.getView().getProjection(),
+
+            dataProjection: 'EPSG:4326'
+
+        });
+
+        const blob = new Blob([geojson], {
+
+            type: "application/json"
+
+        });
+
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+
+        link.href = url;
+
+        link.download = "geometrii.geojson";
+
+        document.body.appendChild(link);
+
+        link.click();
+
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+
+    });
+
+    document.getElementById('btn-fetch-copernicus').addEventListener('click', async function () {
         const button = $(this);
         const originalText = button.text();
-        
+
         let zonaWKT = null;
         let userGeometry4326 = null;
         const features = drawSource.getFeatures();
@@ -417,12 +463,12 @@ window.onload = function () {
             const geometry = features[0].getGeometry().clone();
             geometry.transform(map.getView().getProjection(), 'EPSG:4326');
             userGeometry4326 = geometry;
-            
+
             const wktFormatInternal = new ol.format.WKT({
                 dataProjection: 'EPSG:4326',
                 featureProjection: 'EPSG:4326'
             });
-            
+
             zonaWKT = wktFormatInternal.writeGeometry(geometry, { decimals: 4 });
         }
 
@@ -447,7 +493,7 @@ window.onload = function () {
             console.warn("Validarea buffer-ului a eșuat pentru poligonul utilizatorului:", bufferErr);
         }
 
-        products.forEach(function(product) {
+        products.forEach(function (product) {
             let geometryWKT = product.Footprint || product["OData.CSC.Geometry"] || product.Geometry;
 
             if (geometryWKT) {
@@ -458,10 +504,10 @@ window.onload = function () {
                     if (wktMatch) geometryWKT = wktMatch[0];
 
                     geometryWKT = geometryWKT.replace(/[\r\n\t]/g, ' ')
-                                             .replace(/\s+/g, ' ')
-                                             .replace(/\(\s+/g, '(')
-                                             .replace(/\s+\)/g, ')')
-                                             .trim();
+                        .replace(/\s+/g, ' ')
+                        .replace(/\(\s+/g, '(')
+                        .replace(/\s+\)/g, ')')
+                        .trim();
 
                     const sceneFeatureInternal = wktReader.readFeature(geometryWKT);
                     if (sceneFeatureInternal) {
@@ -470,7 +516,7 @@ window.onload = function () {
                         try {
                             sceneGeoJSON = turf.buffer(sceneGeoJSON, 0, { units: 'kilometers' });
                             if (sceneGeoJSON.type === 'Feature') sceneGeoJSON = sceneGeoJSON.geometry;
-                        } catch (sceneBufErr) {}
+                        } catch (sceneBufErr) { }
 
                         const intersectedGeoJSON = turf.intersect(userGeoJSON, sceneGeoJSON);
 
