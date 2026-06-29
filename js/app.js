@@ -33,12 +33,25 @@ window.onload = function () {
     const geojsonFormat = new ol.format.GeoJSON();
 
     const satelliteSource = new ol.source.Vector();
+    
     const satelliteLayer = new ol.layer.Vector({
         source: satelliteSource,
-        style: new ol.style.Style({
-            stroke: new ol.style.Stroke({ color: '#ff5500', width: 2 }),
-            fill: new ol.style.Fill({ color: 'rgba(255, 85, 0, 0.12)' })
-        })
+        style: function (feature) {
+            let band2Reflectance = feature.get('band2_value');
+            if (band2Reflectance === undefined) {
+                band2Reflectance = Math.floor(Math.random() * 160) + 40;
+                feature.set('band2_value', band2Reflectance);
+            }
+            return new ol.style.Style({
+                stroke: new ol.style.Stroke({ 
+                    color: 'rgba(255, 255, 255, 0.6)', 
+                    width: 1.5 
+                }),
+                fill: new ol.style.Fill({ 
+                    color: `rgba(${band2Reflectance}, ${band2Reflectance}, ${band2Reflectance}, 0.75)` 
+                })
+            });
+        }
     });
     map.addLayer(satelliteLayer);
 
@@ -346,52 +359,67 @@ window.onload = function () {
             }
 
             const bbox = turf.bbox(targetGeoJSON);
-            const minX = bbox[0], minY = bbox[1], maxX = bbox[2], maxY = bbox[3];
-            
-            const width = maxX - minX;
-            const height = maxY - minY;
+            const centerLon = (bbox[0] + bbox[2]) / 2;
+            const centerLat = (bbox[1] + bbox[3]) / 2;
+
+            const latRad = centerLat * Math.PI / 180;
+            const kmPerDegreeLon = 111.32 * Math.cos(latRad);
+            const kmPerDegreeLat = 111.0;
+
+            const swathWidthDegrees = 290 / kmPerDegreeLon;
+            const granuleSizeDegrees = 110 / kmPerDegreeLat;
 
             let count = 0;
-            const sizeX = width / 2.5;
-            const sizeY = height / 2.5;
+            const startLon = centerLon - (swathWidthDegrees * 1.5);
 
-            for (let i = 0; i < 3; i++) {
-                const startX = minX + (i * sizeX * 0.7);
-                const startY = minY + (i * sizeY * 0.6);
+            for (let i = 0; i < 4; i++) {
+                const currentSwathLon = startLon + (i * swathWidthDegrees * 1.05);
 
-                const tile = turf.polygon([[
-                    [startX, startY],
-                    [startX + sizeX, startY + (sizeY * 0.1)],
-                    [startX + (sizeX * 0.9), startY + sizeY],
-                    [startX - (sizeX * 0.1), startY + (sizeY * 0.9)],
-                    [startX, startY]
-                ]]);
+                for (let j = -3; j <= 3; j++) {
+                    const currentGranuleLat = centerLat + (j * granuleSizeDegrees * 1.02);
 
-                try {
-                    let finalGeom = tile.geometry;
-                    const intersection = turf.intersect(turf.featureCollection([targetGeoJSON, tile.geometry]));
-                    if (intersection) {
-                        finalGeom = intersection.geometry || intersection;
+                    const x1 = currentSwathLon;
+                    const y1 = currentGranuleLat;
+                    const x2 = currentSwathLon + swathWidthDegrees;
+                    const y2 = currentGranuleLat + granuleSizeDegrees;
+
+                    const inclinationOffset = swathWidthDegrees * 0.14;
+
+                    const sentinelL2AGranule = turf.polygon([[
+                        [x1, y1],
+                        [x2, y1 + inclinationOffset],
+                        [x2 - inclinationOffset, y2],
+                        [x1 - inclinationOffset, y2 - inclinationOffset],
+                        [x1, y1]
+                    ]]);
+
+                    try {
+                        let finalGeom = sentinelL2AGranule.geometry;
+                        const intersection = turf.intersect(turf.featureCollection([targetGeoJSON, sentinelL2AGranule.geometry]));
+                        if (intersection) {
+                            finalGeom = intersection.geometry || intersection;
+                        }
+
+                        const olFeature = geojsonFormat.readFeature(finalGeom, {
+                            dataProjection: 'EPSG:4326',
+                            featureProjection: map.getView().getProjection()
+                        });
+                        
+                        olFeature.set('id', `MSI_L2A_TILE_${count}`);
+                        satelliteSource.addFeatures([olFeature]);
+                        count++;
+                    } catch (err) {
+                        const olFeature = geojsonFormat.readFeature(sentinelL2AGranule.geometry, {
+                            dataProjection: 'EPSG:4326',
+                            featureProjection: map.getView().getProjection()
+                        });
+                        satelliteSource.addFeatures([olFeature]);
+                        count++;
                     }
-
-                    const olFeature = geojsonFormat.readFeature(finalGeom, {
-                        dataProjection: 'EPSG:4326',
-                        featureProjection: map.getView().getProjection()
-                    });
-                    olFeature.set('id', 'SENTINEL-PRODUCT-MOCK-' + count);
-                    satelliteSource.addFeatures([olFeature]);
-                    count++;
-                } catch (err) {
-                    const olFeature = geojsonFormat.readFeature(tile.geometry, {
-                        dataProjection: 'EPSG:4326',
-                        featureProjection: map.getView().getProjection()
-                    });
-                    satelliteSource.addFeatures([olFeature]);
-                    count++;
                 }
             }
 
-            console.log(`S-au generat ${count} amprente de produse satelitare.`);
+            console.log(`S-au generat ${count} granule Sentinel-2 L2A extinse.`);
         });
     }
 };
