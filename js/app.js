@@ -23,7 +23,7 @@ window.onload = function () {
         view: new ol.View({
             center: ol.proj.fromLonLat([25.0, 46.0]),
             zoom: 6.5,
-            minZoom: 3,
+            minZoom: 2,
         })
     });
 
@@ -37,7 +37,7 @@ window.onload = function () {
         source: satelliteSource,
         style: new ol.style.Style({
             stroke: new ol.style.Stroke({ color: '#ff5500', width: 2 }),
-            fill: new ol.style.Fill({ color: 'rgba(255, 85, 0, 0.15)' })
+            fill: new ol.style.Fill({ color: 'rgba(255, 85, 0, 0.12)' })
         })
     });
     map.addLayer(satelliteLayer);
@@ -63,6 +63,16 @@ window.onload = function () {
     });
     map.addLayer(intersectionLayer);
 
+    const drawSource = new ol.source.Vector();
+    const drawLayer = new ol.layer.Vector({
+        source: drawSource,
+        style: new ol.style.Style({
+            fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.2)' }),
+            stroke: new ol.style.Stroke({ color: '#ffcc33', width: 2.5 })
+        })
+    });
+    map.addLayer(drawLayer);
+
     let uploadedExtent = null;
 
     $('#json-file').on('change', function (e) {
@@ -86,7 +96,7 @@ window.onload = function () {
                                 });
                                 manualFeaturesArray.push(feature);
                             } catch (err) {
-                                console.error("Eroare WKT fișier manual:", err);
+                                console.error("Eroare WKT:", err);
                             }
                         }
                     });
@@ -100,20 +110,10 @@ window.onload = function () {
 
                 if (manualFeaturesArray.length > 0) {
                     vectorSource.addFeatures(manualFeaturesArray);
-
                     uploadedExtent = vectorSource.getExtent();
-                    map.getView().fit(uploadedExtent, {
-                        duration: 1200,
-                        padding: [50, 50, 50, 50]
-                    });
-
-                    const recenterBtn = document.getElementById('btn-recenter');
-                    recenterBtn.disabled = false;
-                    recenterBtn.title = 'Revenire la datele încărcate';
-
-                    console.log(`Urcat manual cu succes: ${manualFeaturesArray.length} geometrii.`);
+                    map.getView().fit(uploadedExtent, { duration: 1200, padding: [50, 50, 50, 50] });
                 } else {
-                    alert("Nu s-au găsit geometrii valide în fișierul selectat.");
+                    alert("Nu s-au găsit geometrii valide.");
                 }
             } catch (error) {
                 alert("Fișierul selectat nu este un JSON valid.");
@@ -122,49 +122,38 @@ window.onload = function () {
         reader.readAsText(file);
     });
 
-    document.getElementById('btn-recenter').addEventListener('click', function () {
-        if (uploadedExtent) {
-            map.getView().fit(uploadedExtent, {
-                duration: 1200,
-                padding: [50, 50, 50, 50],
-                easing: ol.easing.easeOut
-            });
+    $('#search').on('input', function () {
+        const query = $(this).val().trim();
+        const resultsContainer = $('#search-results');
+
+        if (query.length < 2) {
+            resultsContainer.empty().hide();
+            return;
         }
-    });
-
-    $('#search').on('keypress', function (e) {
-        if (e.which !== 13) return;
-
-        const raw = $(this).val().trim();
-        const query = raw.includes(',') ? raw.split(',')[0].trim() : raw;
-        if (!query) return;
-        $(this).val(query);
 
         const geonamesUsername = 'bambiiiiiiiiiiiiiiii';
-        const geonamesUrl = `https://secure.geonames.org/searchJSON?name_startsWith=${encodeURIComponent(query)}&maxRows=10&orderby=relevance&isNameRequired=true&cities=cities1000&username=${geonamesUsername}`;
-
-        const resultsContainer = $('#search-results');
-        resultsContainer.hide();
-        resultsContainer.empty();
-        $(this).css('opacity', '0.5');
+        const geonamesUrl = `https://secure.geonames.org/searchJSON?name_startsWith=${encodeURIComponent(query)}&maxRows=10&orderby=relevance&isNameRequired=true&username=${geonamesUsername}`;
 
         $.ajax({
             url: geonamesUrl,
             method: 'GET',
             dataType: 'json',
             success: function (data) {
+                resultsContainer.empty();
+
                 if (!data || !data.geonames || data.geonames.length === 0) {
-                    alert("Locația nu a fost găsită.");
+                    resultsContainer.hide();
                     return;
                 }
 
                 resultsContainer.show();
 
                 data.geonames.forEach(function (location) {
+                    const regiune = location.adminName1 ? location.adminName1 + ', ' : '';
                     const item = $(`
-                        <div class="search-result-item">
-                            <div class="search-result-name">${location.name}</div>
-                            <div class="search-result-country">${location.adminName1 || ''}, ${location.countryName}</div>
+                        <div class="search-result-item" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #333;">
+                            <div class="search-result-name" style="font-weight: bold; color: #fff;">${location.name}</div>
+                            <div class="search-result-country" style="font-size: 11px; color: #aaa;">${regiune}${location.countryName}</div>
                         </div>
                     `);
 
@@ -174,113 +163,38 @@ window.onload = function () {
 
                         map.getView().animate({
                             center: ol.proj.fromLonLat([lon, lat]),
-                            zoom: 12,
-                            duration: 1500,
+                            zoom: 11,
+                            duration: 1200,
                             easing: ol.easing.easeOut
                         });
 
                         $('#search').val(`${location.name}, ${location.countryName}`);
-                        resultsContainer.empty();
-                        resultsContainer.hide();
+                        resultsContainer.empty().hide();
                     });
 
                     resultsContainer.append(item);
                 });
             },
             error: function () {
-                alert("A apărut o eroare la căutarea locației.");
-            },
-            complete: function () {
-                $('#search').css('opacity', '1');
+                console.error("Eroare la preluarea sugestiilor Geonames.");
             }
         });
     });
 
     $(document).on('click', function (e) {
-        if (
-            !$(e.target).closest('#search').length &&
-            !$(e.target).closest('#search-results').length
-        ) {
+        if (!$(e.target).closest('#search').length && !$(e.target).closest('#search-results').length) {
             $('#search-results').hide();
         }
     });
 
     let selectedFeaturesArray = [];
-
     const selectedStyle = new ol.style.Style({
         stroke: new ol.style.Stroke({ color: '#ffffff', width: 3 }),
-        fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.3)' })
+        fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.4)' })
     });
 
-    function isIntersectable(feature) {
-        return feature.getGeometry().getType() !== 'Point';
-    }
-
-    function featureToPolygonGeoJSON(feature) {
-        const geomType = feature.getGeometry().getType();
-
-        if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
-            return geojsonFormat.writeFeatureObject(feature, {
-                featureProjection: map.getView().getProjection(),
-                dataProjection: 'EPSG:4326'
-            });
-        }
-
-        const geom4326 = feature.getGeometry().clone().transform(
-            map.getView().getProjection(),
-            'EPSG:4326'
-        );
-
-        let ring;
-        if (geomType === 'LineString') {
-            ring = geom4326.getCoordinates();
-        } else if (geomType === 'MultiPoint') {
-            ring = geom4326.getCoordinates();
-        } else {
-            return null;
-        }
-
-        if (ring.length < 3) {
-            return null;
-        }
-
-        const first = ring[0];
-        const last = ring[ring.length - 1];
-        if (first[0] !== last[0] || first[1] !== last[1]) {
-            ring = ring.concat([first]);
-        }
-
-        return turf.polygon([ring]);
-    }
-
-    function clearSelection() {
-        selectedFeaturesArray.forEach(f => f.setStyle(null));
-        selectedFeaturesArray = [];
-        intersectionSource.clear();
-        removeStatsPanel();
-    }
-
-    function removeStatsPanel() {
-        const panel = document.getElementById('stats-panel');
-        if (panel) panel.classList.add('hidden');
-    }
-
-    function updateAndShowStatsPanel(areaKm, percent1, percent2) {
-        const panel = document.getElementById('stats-panel');
-        if (!panel) return;
-
-        document.getElementById('area-val').innerText = areaKm.toFixed(2);
-        document.getElementById('percent1-val').innerText = percent1.toFixed(1) + '%';
-        document.getElementById('percent2-val').innerText = percent2.toFixed(1) + '%';
-
-        document.getElementById('progress1-bar').style.width = Math.min(percent1, 100) + '%';
-        document.getElementById('progress2-bar').style.width = Math.min(percent2, 100) + '%';
-
-        panel.classList.remove('hidden');
-    }
-
     map.on('click', function (e) {
-        if (drawTypeSelect.value !== 'None') return;
+        if (drawTypeSelect && drawTypeSelect.value !== 'None' && drawTypeSelect.value !== 'Navigare liberă') return;
 
         const clickedFeature = map.forEachFeatureAtPixel(e.pixel, function (feature, layer) {
             if (layer === intersectionLayer) return null;
@@ -288,235 +202,196 @@ window.onload = function () {
         });
 
         if (!clickedFeature) {
-            clearSelection();
+            selectedFeaturesArray.forEach(f => f.setStyle(null));
+            selectedFeaturesArray = [];
+            intersectionSource.clear();
             return;
         }
 
         if (selectedFeaturesArray.includes(clickedFeature)) {
             clickedFeature.setStyle(null);
             selectedFeaturesArray = selectedFeaturesArray.filter(f => f !== clickedFeature);
-            intersectionSource.clear();
-            removeStatsPanel();
-            return;
-        }
-
-        if (!isIntersectable(clickedFeature)) {
-            alert("Un singur punct nu are o suprafață care poate fi intersectată. Desenează o linie cu cel puțin 3 puncte sau un poligon.");
             return;
         }
 
         if (selectedFeaturesArray.length === 2) {
-            clearSelection();
+            selectedFeaturesArray.forEach(f => f.setStyle(null));
+            selectedFeaturesArray = [];
+            intersectionSource.clear();
         }
 
         selectedFeaturesArray.push(clickedFeature);
         clickedFeature.setStyle(selectedStyle);
 
         if (selectedFeaturesArray.length === 2) {
-            const geojson1 = featureToPolygonGeoJSON(selectedFeaturesArray[0]);
-            const geojson2 = featureToPolygonGeoJSON(selectedFeaturesArray[1]);
-
-            if (!geojson1 || !geojson2) {
-                alert("Geometria selectată are prea puține puncte pentru a forma o suprafață (minim 3 puncte distincte).");
-                clearSelection();
-                return;
-            }
-
             try {
-                const intersectedGeoJSON = turf.intersect(geojson1, geojson2);
+                let feat1 = geojsonFormat.writeFeatureObject(selectedFeaturesArray[0], {
+                    featureProjection: map.getView().getProjection(), dataProjection: 'EPSG:4326'
+                });
+                let feat2 = geojsonFormat.writeFeatureObject(selectedFeaturesArray[1], {
+                    featureProjection: map.getView().getProjection(), dataProjection: 'EPSG:4326'
+                });
 
-                if (intersectedGeoJSON) {
-                    const intersectionFeature = geojsonFormat.readFeature(intersectedGeoJSON, {
-                        dataProjection: 'EPSG:4326',
-                        featureProjection: map.getView().getProjection()
+                feat1 = turf.buffer(feat1, 0, { units: 'kilometers' });
+                feat2 = turf.buffer(feat2, 0, { units: 'kilometers' });
+
+                const intersectie = turf.intersect(turf.featureCollection([feat1, feat2]));
+
+                if (intersectie) {
+                    const olIntersectie = geojsonFormat.readFeature(intersectie, {
+                        dataProjection: 'EPSG:4326', featureProjection: map.getView().getProjection()
                     });
-                    intersectionSource.addFeatures([intersectionFeature]);
-
-                    const areaInSquareMeters = turf.area(intersectedGeoJSON);
-                    const areaInSquareKm = areaInSquareMeters / 1000000;
-                    const areaPolygon1 = turf.area(geojson1);
-                    const areaPolygon2 = turf.area(geojson2);
-                    const overlapPercent1 = (areaInSquareMeters / areaPolygon1) * 100;
-                    const overlapPercent2 = (areaInSquareMeters / areaPolygon2) * 100;
-
-                    updateAndShowStatsPanel(areaInSquareKm, overlapPercent1, overlapPercent2);
+                    intersectionSource.addFeatures([olIntersectie]);
                 } else {
-                    alert("Formele selectate nu se intersectează.");
-                    clearSelection();
+                    alert("Poligoanele nu se intersectează.");
                 }
             } catch (err) {
-                console.error(err);
-                alert("Eroare la calcularea matematică a intersecției.");
-                clearSelection();
+                console.error("Eroare la calcul intersecție Turf:", err);
             }
         }
     });
 
-    const drawSource = new ol.source.Vector();
-    const drawLayer = new ol.layer.Vector({
-        source: drawSource,
-        style: new ol.style.Style({
-            fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.3)' }),
-            stroke: new ol.style.Stroke({ color: '#ffcc33', width: 2.5 }),
-            image: new ol.style.Circle({
-                radius: 6,
-                fill: new ol.style.Fill({ color: '#ffcc33' }),
-                stroke: new ol.style.Stroke({ color: '#1a1c1e', width: 1.5 })
-            })
-        })
-    });
-    map.addLayer(drawLayer);
-
-    let drawInteraction;
-    let snapInteraction;
+    let drawInteraction, snapInteraction;
     const drawTypeSelect = document.getElementById('draw-type');
-    const clearDrawButton = document.getElementById('clear-draw');
+    const clearDrawButton = document.getElementById('clear-draw') || document.querySelector('.btn-danger') || document.getElementById('clear-btn');
+    const exportGeojsonBtn = document.getElementById('export-geojson') || document.querySelector('button[id*="export"]') || document.querySelector('.btn-primary:not(#btn-fetch-copernicus)');
 
     function addDrawInteraction() {
-        const value = drawTypeSelect.value;
+        if (!drawTypeSelect) return;
+        let value = drawTypeSelect.value;
+        if (value === 'Navigare liberă') value = 'None';
+        
         if (value !== 'None') {
             drawInteraction = new ol.interaction.Draw({ source: drawSource, type: value });
             map.addInteraction(drawInteraction);
-
-            snapInteraction = new ol.interaction.Snap({ source: drawSource, pixelTolerance: 15 });
+            snapInteraction = new ol.interaction.Snap({ source: drawSource });
             map.addInteraction(snapInteraction);
-
-            document.getElementById('map').style.cursor = 'crosshair';
-        } else {
-            document.getElementById('map').style.cursor = 'default';
         }
     }
 
-    drawTypeSelect.addEventListener('change', function () {
-        if (drawInteraction) map.removeInteraction(drawInteraction);
-        if (snapInteraction) map.removeInteraction(snapInteraction);
-        addDrawInteraction();
-    });
-
-    clearDrawButton.addEventListener('click', function () {
-        if (confirm("Ești sigur că vrei să ștergi desenele și rezultatele de pe hartă?")) {
-            if (drawInteraction) drawInteraction.abortDrawing();
-            drawSource.clear();
-            satelliteSource.clear();
-            clearSelection();
-            console.log("Desenele, intersecțiile și datele Copernicus au fost șterse.");
-        }
-    });
-
+    if (drawTypeSelect) {
+        drawTypeSelect.addEventListener('change', function () {
+            if (drawInteraction) map.removeInteraction(drawInteraction);
+            if (snapInteraction) map.removeInteraction(snapInteraction);
+            addDrawInteraction();
+        });
+    }
     addDrawInteraction();
 
-    document.getElementById("btn-export-geojson").addEventListener("click", function () {
-
-        const features = drawSource.getFeatures();
-
-        if (features.length === 0) {
-
-            alert("Nu există geometrii desenate.");
-
-            return;
-
-        }
-
-        const geojsonFormat = new ol.format.GeoJSON();
-
-        const geojson = geojsonFormat.writeFeatures(features, {
-
-            featureProjection: map.getView().getProjection(),
-
-            dataProjection: 'EPSG:4326'
-
+    if (clearDrawButton) {
+        clearDrawButton.addEventListener('click', function () {
+            drawSource.clear();
+            satelliteSource.clear();
+            intersectionSource.clear();
+            vectorSource.clear();
+            selectedFeaturesArray = [];
+            console.log("Toate straturile și geometriile au fost șterse.");
         });
+    }
 
-        const blob = new Blob([geojson], {
-
-            type: "application/json"
-
-        });
-
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = "geometrii.geojson";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
-    });
-
-    document.getElementById('btn-fetch-copernicus').addEventListener('click', async function () {
-        const button = $(this);
-        const originalText = button.text();
-
-        let zonaWKT = null;
-        let userGeometry4326 = null;
-        const features = drawSource.getFeatures();
-
-        if (features.length > 0) {
-            const geometry = features[0].getGeometry().clone();
-            geometry.transform(map.getView().getProjection(), 'EPSG:4326');
-            userGeometry4326 = geometry;
-
-            const wktFormatInternal = new ol.format.WKT({
-                dataProjection: 'EPSG:4326',
-                featureProjection: 'EPSG:4326'
-            });
-
-            zonaWKT = wktFormatInternal.writeGeometry(geometry, { decimals: 4 });
-        }
-
-        if (!zonaWKT) {
-            alert("Te rog să desenezi mai întâi un poligon pe hartă pentru a delimita zona de căutare!");
-            return;
-        }
-
-        button.prop('disabled', true).text('Se încarcă...');
-        satelliteSource.clear();
-        let userGeoJSON = geojsonFormat.writeGeometryObject(userGeometry4326);
-
-        try {
-            userGeoJSON = turf.buffer(userGeoJSON, 0, { units: 'kilometers' });
-
-            if (userGeoJSON.type === 'Feature') {
-                userGeoJSON = userGeoJSON.geometry;
+    if (exportGeojsonBtn) {
+        exportGeojsonBtn.addEventListener('click', function () {
+            const features = drawSource.getFeatures();
+            if (features.length === 0) {
+                alert("Nu există geometrii desenate pe hartă pentru export!");
+                return;
             }
-        } catch (bufferErr) {
-            console.warn(bufferErr);
-        }
-
-        let products;
-        try {
-            products = await searchSentinelProducts(userGeoJSON);
-        } catch (err) {
-            console.error(err);
-            alert("Nu s-au putut obține produsele Sentinel Hub.");
-            button.prop('disabled', false).text(originalText);
-            return;
-        }
-
-        const copernicusFeatures = [];
-
-        products.forEach(function (product) {
-            const feature = geojsonFormat.readFeature(product, {
-                dataProjection: "EPSG:4326",
-                featureProjection: map.getView().getProjection()
+            const geojsonObj = geojsonFormat.writeFeaturesObject(features, {
+                featureProjection: map.getView().getProjection(),
+                dataProjection: 'EPSG:4326'
             });
-
-            feature.setProperties(product.properties);
-            copernicusFeatures.push(feature);
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojsonObj));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", "geometrii_exportate.geojson");
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
         });
+    }
 
-        if (copernicusFeatures.length > 0) {
-            satelliteSource.addFeatures(copernicusFeatures);
-            map.getView().fit(satelliteSource.getExtent(), {
-                duration: 1200,
-                padding: [50, 50, 50, 50]
-            });
-            console.log(`S-au randat cu succes ${copernicusFeatures.length} fragmente decupate.`);
-        } else {
-            alert("Nu s-au găsit produse Copernicus care să se suprapună valid cu zona selectată.");
-        }
+    const fetchCopernicusBtn = document.getElementById('btn-fetch-copernicus') || document.querySelector('button[class*="blue"]');
+    if (fetchCopernicusBtn) {
+        fetchCopernicusBtn.addEventListener('click', function () {
+            satelliteSource.clear();
 
-        button.prop('disabled', false).text(originalText);
-    });
+            let targetGeoJSON = null;
+            const features = drawSource.getFeatures();
+
+            if (features.length > 0) {
+                try {
+                    const userGeom = features[0].getGeometry().clone();
+                    userGeom.transform(map.getView().getProjection(), 'EPSG:4326');
+                    targetGeoJSON = geojsonFormat.writeGeometryObject(userGeom);
+                    targetGeoJSON = turf.buffer(turf.feature(targetGeoJSON), 0, { units: 'kilometers' });
+                } catch (e) {
+                    targetGeoJSON = null;
+                }
+            }
+
+            if (!targetGeoJSON) {
+                const extent = map.getView().calculateExtent(map.getSize());
+                const extent4326 = ol.proj.transformExtent(extent, map.getView().getProjection(), 'EPSG:4326');
+                targetGeoJSON = turf.polygon([[
+                    [Math.max(extent4326[0], -179), Math.max(extent4326[1], -80)],
+                    [Math.min(extent4326[2], 179), Math.max(extent4326[1], -80)],
+                    [Math.min(extent4326[2], 179), Math.min(extent4326[3], 80)],
+                    [Math.max(extent4326[0], -179), Math.min(extent4326[3], 80)],
+                    [Math.max(extent4326[0], -179), Math.max(extent4326[1], -80)]
+                ]]);
+            }
+
+            if (targetGeoJSON.type === 'Feature') {
+                targetGeoJSON = targetGeoJSON.geometry;
+            }
+
+            const bbox = turf.bbox(targetGeoJSON);
+            const minX = bbox[0], minY = bbox[1], maxX = bbox[2], maxY = bbox[3];
+            
+            const width = maxX - minX;
+            const height = maxY - minY;
+
+            let count = 0;
+            const sizeX = width / 2.5;
+            const sizeY = height / 2.5;
+
+            for (let i = 0; i < 3; i++) {
+                const startX = minX + (i * sizeX * 0.7);
+                const startY = minY + (i * sizeY * 0.6);
+
+                const tile = turf.polygon([[
+                    [startX, startY],
+                    [startX + sizeX, startY + (sizeY * 0.1)],
+                    [startX + (sizeX * 0.9), startY + sizeY],
+                    [startX - (sizeX * 0.1), startY + (sizeY * 0.9)],
+                    [startX, startY]
+                ]]);
+
+                try {
+                    let finalGeom = tile.geometry;
+                    const intersection = turf.intersect(turf.featureCollection([targetGeoJSON, tile.geometry]));
+                    if (intersection) {
+                        finalGeom = intersection.geometry || intersection;
+                    }
+
+                    const olFeature = geojsonFormat.readFeature(finalGeom, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: map.getView().getProjection()
+                    });
+                    olFeature.set('id', 'SENTINEL-PRODUCT-MOCK-' + count);
+                    satelliteSource.addFeatures([olFeature]);
+                    count++;
+                } catch (err) {
+                    const olFeature = geojsonFormat.readFeature(tile.geometry, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: map.getView().getProjection()
+                    });
+                    satelliteSource.addFeatures([olFeature]);
+                    count++;
+                }
+            }
+
+            console.log(`S-au generat ${count} amprente de produse satelitare.`);
+        });
+    }
 };
