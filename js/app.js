@@ -32,8 +32,12 @@ window.onload = function () {
     const wktFormat = new ol.format.WKT();
     const geojsonFormat = new ol.format.GeoJSON();
 
-    const satelliteSource = new ol.source.Vector();
+    const drawTypeSelect = document.getElementById('draw-type');
+    const clearDrawButton = document.getElementById('clear-draw');
+    const exportGeojsonBtn = document.getElementById('btn-export-geojson');
+    const fetchCopernicusBtn = document.getElementById('btn-fetch-copernicus');
     
+    const satelliteSource = new ol.source.Vector();
     const satelliteLayer = new ol.layer.Vector({
         source: satelliteSource,
         style: function (feature) {
@@ -51,7 +55,8 @@ window.onload = function () {
                     color: `rgba(${band2Reflectance}, ${band2Reflectance}, ${band2Reflectance}, 0.75)` 
                 })
             });
-        }
+        },
+        zIndex: 10
     });
     map.addLayer(satelliteLayer);
 
@@ -61,30 +66,56 @@ window.onload = function () {
         style: new ol.style.Style({
             stroke: new ol.style.Stroke({ color: '#3388ff', width: 2 }),
             fill: new ol.style.Fill({ color: 'rgba(51, 136, 255, 0.2)' })
-        })
+        }),
+        zIndex: 20
     });
     map.addLayer(vectorLayer);
 
-    const intersectionSource = new ol.source.Vector();
-    const intersectionLayer = new ol.layer.Vector({
-        source: intersectionSource,
+    const searchSource = new ol.source.Vector();
+    const searchLayer = new ol.layer.Vector({
+        source: searchSource,
         style: new ol.style.Style({
-            stroke: new ol.style.Stroke({ color: '#ff0000', width: 4 }),
-            fill: new ol.style.Fill({ color: 'rgba(255, 0, 0, 0.5)' })
+            image: new ol.style.Circle({
+                radius: 7,
+                fill: new ol.style.Fill({ color: '#10b981' }), 
+                stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+            })
         }),
-        zIndex: 100
+        zIndex: 30
     });
-    map.addLayer(intersectionLayer);
+    map.addLayer(searchLayer);
 
     const drawSource = new ol.source.Vector();
     const drawLayer = new ol.layer.Vector({
         source: drawSource,
         style: new ol.style.Style({
             fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.2)' }),
-            stroke: new ol.style.Stroke({ color: '#ffcc33', width: 2.5 })
-        })
+            stroke: new ol.style.Stroke({ color: '#ffcc33', width: 2.5 }),
+            image: new ol.style.Circle({
+                radius: 6,
+                fill: new ol.style.Fill({ color: '#ffcc33' }),
+                stroke: new ol.style.Stroke({ color: '#1a1c1e', width: 1.5 })
+            })
+        }),
+        zIndex: 40
     });
     map.addLayer(drawLayer);
+
+    const intersectionSource = new ol.source.Vector();
+    const intersectionLayer = new ol.layer.Vector({
+        source: intersectionSource,
+        style: new ol.style.Style({
+            stroke: new ol.style.Stroke({ color: '#ff0000', width: 4 }),
+            fill: new ol.style.Fill({ color: 'rgba(255, 0, 0, 0.5)' }),
+            image: new ol.style.Circle({
+                radius: 7,
+                fill: new ol.style.Fill({ color: '#ff0000' }),
+                stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+            })
+        }),
+        zIndex: 100
+    });
+    map.addLayer(intersectionLayer);
 
     let uploadedExtent = null;
 
@@ -139,6 +170,12 @@ window.onload = function () {
         const query = $(this).val().trim();
         const resultsContainer = $('#search-results');
 
+        if (query.length > 0) {
+            $('#clear-search').css('display', 'flex');
+        } else {
+            $('#clear-search').css('display', 'none');
+        }
+
         if (query.length < 2) {
             resultsContainer.empty().hide();
             return;
@@ -174,6 +211,14 @@ window.onload = function () {
                         const lon = parseFloat(location.lng);
                         const lat = parseFloat(location.lat);
 
+                        const searchFeature = new ol.Feature({
+                            geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
+                        });
+                        searchFeature.set('id', 'GeoNames: ' + location.name);
+                        
+                        searchSource.clear(); 
+                        searchSource.addFeature(searchFeature); 
+
                         map.getView().animate({
                             center: ol.proj.fromLonLat([lon, lat]),
                             zoom: 11,
@@ -194,6 +239,13 @@ window.onload = function () {
         });
     });
 
+    $('#clear-search').on('click', function() {
+        $('#search').val('').focus();
+        $(this).css('display', 'none');
+        $('#search-results').empty().hide();
+        searchSource.clear();
+    });
+
     $(document).on('click', function (e) {
         if (!$(e.target).closest('#search').length && !$(e.target).closest('#search-results').length) {
             $('#search-results').hide();
@@ -205,6 +257,25 @@ window.onload = function () {
         stroke: new ol.style.Stroke({ color: '#ffffff', width: 3 }),
         fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.4)' })
     });
+
+    function removeStatsPanel() {
+        const panel = document.getElementById('stats-panel');
+        if (panel) panel.classList.add('hidden');
+    }
+
+    function updateAndShowStatsPanel(areaKm, percent1, percent2) {
+        const panel = document.getElementById('stats-panel');
+        if (!panel) return;
+
+        document.getElementById('area-val').innerText = areaKm.toFixed(2);
+        document.getElementById('percent1-val').innerText = percent1.toFixed(1) + '%';
+        document.getElementById('percent2-val').innerText = percent2.toFixed(1) + '%';
+
+        document.getElementById('progress1-bar').style.width = Math.min(percent1, 100) + '%';
+        document.getElementById('progress2-bar').style.width = Math.min(percent2, 100) + '%';
+
+        panel.classList.remove('hidden');
+    }
 
     map.on('click', function (e) {
         if (drawTypeSelect && drawTypeSelect.value !== 'None' && drawTypeSelect.value !== 'Navigare liberă') return;
@@ -218,12 +289,15 @@ window.onload = function () {
             selectedFeaturesArray.forEach(f => f.setStyle(null));
             selectedFeaturesArray = [];
             intersectionSource.clear();
+            removeStatsPanel();
             return;
         }
 
         if (selectedFeaturesArray.includes(clickedFeature)) {
             clickedFeature.setStyle(null);
             selectedFeaturesArray = selectedFeaturesArray.filter(f => f !== clickedFeature);
+            intersectionSource.clear();
+            removeStatsPanel();
             return;
         }
 
@@ -231,6 +305,7 @@ window.onload = function () {
             selectedFeaturesArray.forEach(f => f.setStyle(null));
             selectedFeaturesArray = [];
             intersectionSource.clear();
+            removeStatsPanel();
         }
 
         selectedFeaturesArray.push(clickedFeature);
@@ -245,29 +320,81 @@ window.onload = function () {
                     featureProjection: map.getView().getProjection(), dataProjection: 'EPSG:4326'
                 });
 
-                feat1 = turf.buffer(feat1, 0, { units: 'kilometers' });
-                feat2 = turf.buffer(feat2, 0, { units: 'kilometers' });
+                function makeSurface(feat) {
+                    const type = turf.getType(feat);
+                    if (type === 'Polygon' || type === 'MultiPolygon') {
+                        return turf.buffer(feat, 0, { units: 'kilometers' });
+                    } 
+                    if (type === 'LineString') {
+                        let coords = feat.geometry.coordinates;
+                        if (coords.length >= 3) {
+                            const firstPt = coords[0];
+                            const lastPt = coords[coords.length - 1];
+                            if (firstPt[0] !== lastPt[0] || firstPt[1] !== lastPt[1]) {
+                                coords.push([...firstPt]);
+                            }
+                            try {
+                                let poly = turf.polygon([coords]);
+                                return turf.buffer(poly, 0, { units: 'kilometers' });
+                            } catch (e) {
+                                return feat;
+                            }
+                        }
+                    }
+                    return feat;
+                }
 
-                const intersectie = turf.intersect(turf.featureCollection([feat1, feat2]));
+                feat1 = makeSurface(feat1);
+                feat2 = makeSurface(feat2);
 
-                if (intersectie) {
-                    const olIntersectie = geojsonFormat.readFeature(intersectie, {
-                        dataProjection: 'EPSG:4326', featureProjection: map.getView().getProjection()
+                let intersectie = null;
+                
+                try {
+                    intersectie = turf.intersect(turf.featureCollection([feat1, feat2]));
+                } catch (versionError) {
+                    intersectie = turf.intersect(feat1, feat2);
+                }
+
+                if (intersectie && (intersectie.geometry || (intersectie.features && intersectie.features.length > 0))) {
+                    
+                    const geojsonCollection = intersectie.type === 'FeatureCollection' ? intersectie : turf.featureCollection([intersectie]);
+                    const olIntersectieArray = geojsonFormat.readFeatures(geojsonCollection, {
+                        dataProjection: 'EPSG:4326', 
+                        featureProjection: map.getView().getProjection()
                     });
-                    intersectionSource.addFeatures([olIntersectie]);
+                    intersectionSource.addFeatures(olIntersectieArray);
+
+                    const areaInSquareMeters = turf.area(intersectie);
+                    const areaInSquareKm = areaInSquareMeters / 1000000;
+                    
+                    const areaPolygon1 = turf.area(feat1);
+                    const areaPolygon2 = turf.area(feat2);
+
+                    const overlapPercent1 = areaPolygon1 ? (areaInSquareMeters / areaPolygon1) * 100 : 0;
+                    const overlapPercent2 = areaPolygon2 ? (areaInSquareMeters / areaPolygon2) * 100 : 0;
+
+                    document.querySelector('.metric-unit').innerText = "km²";
+                    updateAndShowStatsPanel(areaInSquareKm, overlapPercent1, overlapPercent2);
+
                 } else {
-                    alert("Poligoanele nu se intersectează.");
+                    alert("Geometriile selectate nu se suprapun.");
+                    selectedFeaturesArray.forEach(f => f.setStyle(null));
+                    selectedFeaturesArray = [];
+                    intersectionSource.clear();
+                    removeStatsPanel();
                 }
             } catch (err) {
-                console.error("Eroare la calcul intersecție Turf:", err);
+                console.error("Eroare la calcul intersecție:", err);
+                alert("A apărut o eroare la calculul intersecției.");
+                selectedFeaturesArray.forEach(f => f.setStyle(null));
+                selectedFeaturesArray = [];
+                intersectionSource.clear();
+                removeStatsPanel();
             }
         }
     });
 
     let drawInteraction, snapInteraction;
-    const drawTypeSelect = document.getElementById('draw-type');
-    const clearDrawButton = document.getElementById('clear-draw') || document.querySelector('.btn-danger') || document.getElementById('clear-btn');
-    const exportGeojsonBtn = document.getElementById('export-geojson') || document.querySelector('button[id*="export"]') || document.querySelector('.btn-primary:not(#btn-fetch-copernicus)');
 
     function addDrawInteraction() {
         if (!drawTypeSelect) return;
@@ -277,7 +404,8 @@ window.onload = function () {
         if (value !== 'None') {
             drawInteraction = new ol.interaction.Draw({ source: drawSource, type: value });
             map.addInteraction(drawInteraction);
-            snapInteraction = new ol.interaction.Snap({ source: drawSource });
+            
+            snapInteraction = new ol.interaction.Snap({ source: drawSource, pixelTolerance: 15 });
             map.addInteraction(snapInteraction);
         }
     }
@@ -293,12 +421,20 @@ window.onload = function () {
 
     if (clearDrawButton) {
         clearDrawButton.addEventListener('click', function () {
-            drawSource.clear();
-            satelliteSource.clear();
-            intersectionSource.clear();
-            vectorSource.clear();
-            selectedFeaturesArray = [];
-            console.log("Toate straturile și geometriile au fost șterse.");
+            if(confirm("Dorești curățarea completă a interfeței? (Desene, intersecții, selecții și căutări)")) {
+                if (drawInteraction) drawInteraction.abortDrawing();
+                
+                drawSource.clear();
+                intersectionSource.clear();
+                searchSource.clear();
+                satelliteSource.clear();
+                vectorSource.clear();
+                
+                selectedFeaturesArray.forEach(f => f.setStyle(null));
+                selectedFeaturesArray = [];
+                removeStatsPanel();
+                console.log("Toate straturile au fost resetate cu succes.");
+            }
         });
     }
 
@@ -323,7 +459,6 @@ window.onload = function () {
         });
     }
 
-    const fetchCopernicusBtn = document.getElementById('btn-fetch-copernicus') || document.querySelector('button[class*="blue"]');
     if (fetchCopernicusBtn) {
         fetchCopernicusBtn.addEventListener('click', function () {
             satelliteSource.clear();

@@ -698,3 +698,38 @@ html, body {
     height: 18px;
     stroke: #4da6ff;
 }
+
+.search-input-container {
+    position: relative;
+    width: 100%;
+}
+
+.search-input-container input {
+    padding-right: 40px !important;
+}
+
+#clear-search {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 5px;
+    display: none; /* Este ascuns la început */
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: color 0.2s ease;
+}
+
+#clear-search:hover {
+    color: #ef4444;
+}
+
+#clear-search svg {
+    width: 16px;
+    height: 16px;
+}
