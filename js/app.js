@@ -32,33 +32,26 @@ window.onload = function () {
     const wktFormat = new ol.format.WKT();
     const geojsonFormat = new ol.format.GeoJSON();
 
-    const drawTypeSelect = document.getElementById('draw-type');
-    const clearDrawButton = document.getElementById('clear-draw');
-    const exportGeojsonBtn = document.getElementById('btn-export-geojson');
-    const fetchCopernicusBtn = document.getElementById('btn-fetch-copernicus');
-    
+    // Layer pentru poligoanele "footprint" ale produselor Sentinel (raman afisate ca referinta)
     const satelliteSource = new ol.source.Vector();
+
     const satelliteLayer = new ol.layer.Vector({
         source: satelliteSource,
-        style: function (feature) {
-            let band2Reflectance = feature.get('band2_value');
-            if (band2Reflectance === undefined) {
-                band2Reflectance = Math.floor(Math.random() * 160) + 40;
-                feature.set('band2_value', band2Reflectance);
-            }
-            return new ol.style.Style({
-                stroke: new ol.style.Stroke({ 
-                    color: 'rgba(255, 255, 255, 0.6)', 
-                    width: 1.5 
-                }),
-                fill: new ol.style.Fill({ 
-                    color: `rgba(${band2Reflectance}, ${band2Reflectance}, ${band2Reflectance}, 0.75)` 
-                })
-            });
-        },
-        zIndex: 10
+        style: new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: 'rgba(255, 255, 255, 0.8)',
+                width: 1.5
+            }),
+            fill: new ol.style.Fill({
+                color: 'rgba(255, 255, 255, 0.05)'
+            })
+        })
     });
     map.addLayer(satelliteLayer);
+
+    // Layer pentru imaginea reala Sentinel-2 (banda B02, normalizata), suprapusa pe harta
+    let sentinelImageLayer = new ol.layer.Image({ source: null });
+    map.addLayer(sentinelImageLayer);
 
     const vectorSource = new ol.source.Vector();
     const vectorLayer = new ol.layer.Vector({
@@ -396,11 +389,14 @@ window.onload = function () {
 
     let drawInteraction, snapInteraction;
 
+    // DEFINIREA CORECTĂ A BUTONULUI COPERNICUS
+    const fetchCopernicusBtn = document.getElementById('btn-fetch-copernicus');
+
     function addDrawInteraction() {
         if (!drawTypeSelect) return;
         let value = drawTypeSelect.value;
         if (value === 'Navigare liberă') value = 'None';
-        
+
         if (value !== 'None') {
             drawInteraction = new ol.interaction.Draw({ source: drawSource, type: value });
             map.addInteraction(drawInteraction);
@@ -421,20 +417,18 @@ window.onload = function () {
 
     if (clearDrawButton) {
         clearDrawButton.addEventListener('click', function () {
-            if(confirm("Dorești curățarea completă a interfeței? (Desene, intersecții, selecții și căutări)")) {
-                if (drawInteraction) drawInteraction.abortDrawing();
-                
-                drawSource.clear();
-                intersectionSource.clear();
-                searchSource.clear();
-                satelliteSource.clear();
-                vectorSource.clear();
-                
-                selectedFeaturesArray.forEach(f => f.setStyle(null));
-                selectedFeaturesArray = [];
-                removeStatsPanel();
-                console.log("Toate straturile au fost resetate cu succes.");
-            }
+            drawSource.clear();
+            satelliteSource.clear();
+            intersectionSource.clear();
+            vectorSource.clear();
+            selectedFeaturesArray = [];
+
+            // Curatam si imaginea Sentinel reala afisata pe harta
+            map.removeLayer(sentinelImageLayer);
+            sentinelImageLayer = new ol.layer.Image({ source: null });
+            map.addLayer(sentinelImageLayer);
+
+            console.log("Toate straturile și geometriile au fost șterse.");
         });
     }
 
@@ -459,102 +453,159 @@ window.onload = function () {
         });
     }
 
+    // LISTENERUL CORECT PENTRU INTEROGAREA API-ULUI COPERNICUS
     if (fetchCopernicusBtn) {
-        fetchCopernicusBtn.addEventListener('click', function () {
+        fetchCopernicusBtn.addEventListener('click', async function () {
             satelliteSource.clear();
+
+            // Curatam imaginea Sentinel veche, daca exista una de la o cautare anterioara
+            map.removeLayer(sentinelImageLayer);
+            sentinelImageLayer = new ol.layer.Image({ source: null });
+            map.addLayer(sentinelImageLayer);
 
             let targetGeoJSON = null;
             const features = drawSource.getFeatures();
 
             if (features.length > 0) {
                 try {
-                    const userGeom = features[0].getGeometry().clone();
-                    userGeom.transform(map.getView().getProjection(), 'EPSG:4326');
-                    targetGeoJSON = geojsonFormat.writeGeometryObject(userGeom);
-                    targetGeoJSON = turf.buffer(turf.feature(targetGeoJSON), 0, { units: 'kilometers' });
+                    const geom = features[0].getGeometry();
+                    const geom4326 = geom.clone().transform(map.getView().getProjection(), 'EPSG:4326');
+
+                    if (geom4326.getType() !== 'Polygon') {
+                        const rawGeo = geojsonFormat.writeGeometryObject(geom4326);
+                        if (rawGeo.type === 'Polygon') {
+                            targetGeoJSON = rawGeo;
+                        } else {
+                            const extent = geom4326.getExtent();
+                            targetGeoJSON = {
+                                type: "Polygon",
+                                coordinates: [[
+                                    [extent[0], extent[1]],
+                                    [extent[2], extent[1]],
+                                    [extent[2], extent[3]],
+                                    [extent[0], extent[3]],
+                                    [extent[0], extent[1]]
+                                ]]
+                            };
+                        }
+                    } else {
+                        targetGeoJSON = geojsonFormat.writeGeometryObject(geom4326);
+                    }
                 } catch (e) {
-                    targetGeoJSON = null;
+                    console.error("Eroare la conversia geometriei în EPSG:4326:", e);
                 }
             }
 
             if (!targetGeoJSON) {
                 const extent = map.getView().calculateExtent(map.getSize());
                 const extent4326 = ol.proj.transformExtent(extent, map.getView().getProjection(), 'EPSG:4326');
-                targetGeoJSON = turf.polygon([[
-                    [Math.max(extent4326[0], -179), Math.max(extent4326[1], -80)],
-                    [Math.min(extent4326[2], 179), Math.max(extent4326[1], -80)],
-                    [Math.min(extent4326[2], 179), Math.min(extent4326[3], 80)],
-                    [Math.max(extent4326[0], -179), Math.min(extent4326[3], 80)],
-                    [Math.max(extent4326[0], -179), Math.max(extent4326[1], -80)]
-                ]]);
+                targetGeoJSON = {
+                    type: "Polygon",
+                    coordinates: [[
+                        [extent4326[0], extent4326[1]],
+                        [extent4326[2], extent4326[1]],
+                        [extent4326[2], extent4326[3]],
+                        [extent4326[0], extent4326[3]],
+                        [extent4326[0], extent4326[1]]
+                    ]]
+                };
             }
 
-            if (targetGeoJSON.type === 'Feature') {
-                targetGeoJSON = targetGeoJSON.geometry;
-            }
+            try {
+                console.log("Se trimite la Sentinel Hub geometria curățată:", JSON.stringify(targetGeoJSON));
 
-            const bbox = turf.bbox(targetGeoJSON);
-            const centerLon = (bbox[0] + bbox[2]) / 2;
-            const centerLat = (bbox[1] + bbox[3]) / 2;
+                const products = await searchSentinelProducts(targetGeoJSON);
 
-            const latRad = centerLat * Math.PI / 180;
-            const kmPerDegreeLon = 111.32 * Math.cos(latRad);
-            const kmPerDegreeLat = 111.0;
+                if (!products || products.length === 0) {
+                    alert("Nu s-au găsit produse Sentinel 2 în această zonă.");
+                    return;
+                }
 
-            const swathWidthDegrees = 290 / kmPerDegreeLon;
-            const granuleSizeDegrees = 110 / kmPerDegreeLat;
+                // Desenam footprint-urile (conturul) tuturor produselor gasite
+                products.forEach((product, index) => {
+                    if (product.geometry) {
+                        const olFeature = geojsonFormat.readFeature(product.geometry, {
+                            dataProjection: 'EPSG:4326',
+                            featureProjection: map.getView().getProjection()
+                        });
+                        olFeature.set('id', product.id || `SENTINEL_PROD_${index}`);
+                        satelliteSource.addFeatures([olFeature]);
+                    }
+                });
+                console.log(`Succes! S-au mapat ${products.length} poligoane de satelit.`);
 
-            let count = 0;
-            const startLon = centerLon - (swathWidthDegrees * 1.5);
+                // Generam si afisam imaginea REALA Sentinel-2 (banda B02, normalizata)
+                // pentru primul produs gasit
+                const firstProduct = products[0];
+                if (firstProduct && firstProduct.geometry) {
+                    const geomFeature = geojsonFormat.readFeature(firstProduct.geometry, {
+                        dataProjection: 'EPSG:4326',
+                        featureProjection: 'EPSG:4326' // ramanem in 4326 ca sa calculam bbox-ul corect
+                    });
+                    const bbox4326 = geomFeature.getGeometry().getExtent();
 
-            for (let i = 0; i < 4; i++) {
-                const currentSwathLon = startLon + (i * swathWidthDegrees * 1.05);
+                    // Acelasi interval de timp folosit si la cautarea in catalog
+                    const dateFrom = "2024-06-01T00:00:00Z";
+                    const dateTo = "2024-06-30T23:59:59Z";
 
-                for (let j = -3; j <= 3; j++) {
-                    const currentGranuleLat = centerLat + (j * granuleSizeDegrees * 1.02);
+                    // Calculam dinamic latimea/inaltimea imaginii in functie de marimea bbox-ului,
+                    // ca sa respectam limita de rezolutie a Sentinel Hub (max 200 m/pixel pt S2L1C)
+                    // si limita superioara de pixeli acceptata de API (~2500 x 2500)
+                    const [minLon, minLat, maxLon, maxLat] = bbox4326;
+                    const lonDiff = maxLon - minLon;
+                    const latDiff = maxLat - minLat;
 
-                    const x1 = currentSwathLon;
-                    const y1 = currentGranuleLat;
-                    const x2 = currentSwathLon + swathWidthDegrees;
-                    const y2 = currentGranuleLat + granuleSizeDegrees;
+                    // Conversie aproximativa grade -> metri (la latitudinea medie a zonei)
+                    const avgLat = (minLat + maxLat) / 2;
+                    const metersPerDegLon = 111320 * Math.cos(avgLat * Math.PI / 180);
+                    const metersPerDegLat = 110540;
 
-                    const inclinationOffset = swathWidthDegrees * 0.14;
+                    const widthMeters = lonDiff * metersPerDegLon;
+                    const heightMeters = latDiff * metersPerDegLat;
 
-                    const sentinelL2AGranule = turf.polygon([[
-                        [x1, y1],
-                        [x2, y1 + inclinationOffset],
-                        [x2 - inclinationOffset, y2],
-                        [x1 - inclinationOffset, y2 - inclinationOffset],
-                        [x1, y1]
-                    ]]);
+                    const MAX_RES_M_PER_PX = 195; // putin sub limita de 200, ca rezerva
+                    const MAX_PIXELS = 2000; // sub limita maxima a API-ului, ca rezerva
+
+                    let imgWidth = Math.ceil(widthMeters / MAX_RES_M_PER_PX);
+                    let imgHeight = Math.ceil(heightMeters / MAX_RES_M_PER_PX);
+
+                    // Limitam la maximul acceptat
+                    imgWidth = Math.min(Math.max(imgWidth, 64), MAX_PIXELS);
+                    imgHeight = Math.min(Math.max(imgHeight, 64), MAX_PIXELS);
+
+                    console.log(`Dimensiuni calculate pentru imagine: ${imgWidth}x${imgHeight} px`);
 
                     try {
-                        let finalGeom = sentinelL2AGranule.geometry;
-                        const intersection = turf.intersect(turf.featureCollection([targetGeoJSON, sentinelL2AGranule.geometry]));
-                        if (intersection) {
-                            finalGeom = intersection.geometry || intersection;
-                        }
+                        console.log("Se genereaza imaginea Sentinel-2 (banda B02)...");
+                        const imageUrl = await fetchSentinelImage(bbox4326, dateFrom, dateTo, imgWidth, imgHeight);
 
-                        const olFeature = geojsonFormat.readFeature(finalGeom, {
-                            dataProjection: 'EPSG:4326',
-                            featureProjection: map.getView().getProjection()
+                        const imageExtent3857 = ol.proj.transformExtent(
+                            bbox4326,
+                            'EPSG:4326',
+                            map.getView().getProjection()
+                        );
+
+                        map.removeLayer(sentinelImageLayer);
+                        sentinelImageLayer = new ol.layer.Image({
+                            source: new ol.source.ImageStatic({
+                                url: imageUrl,
+                                imageExtent: imageExtent3857,
+                                projection: map.getView().getProjection()
+                            }),
+                            opacity: 0.85
                         });
-                        
-                        olFeature.set('id', `MSI_L2A_TILE_${count}`);
-                        satelliteSource.addFeatures([olFeature]);
-                        count++;
-                    } catch (err) {
-                        const olFeature = geojsonFormat.readFeature(sentinelL2AGranule.geometry, {
-                            dataProjection: 'EPSG:4326',
-                            featureProjection: map.getView().getProjection()
-                        });
-                        satelliteSource.addFeatures([olFeature]);
-                        count++;
+                        map.addLayer(sentinelImageLayer);
+
+                        console.log("Imagine Sentinel-2 afișată cu succes!");
+                    } catch (imgErr) {
+                        console.error("Eroare la generarea imaginii Sentinel:", imgErr);
+                        alert("Nu s-a putut genera imaginea satelitară. Verifică consola pentru detalii.");
                     }
                 }
+            } catch (error) {
+                console.error("Eroare Sentinel Hub:", error);
+                alert("Serverul a respins cererea. Verifică consola pentru detalii.");
             }
-
-            console.log(`S-au generat ${count} granule Sentinel-2 L2A extinse.`);
         });
     }
 };
