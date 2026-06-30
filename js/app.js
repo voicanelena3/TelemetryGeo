@@ -459,6 +459,27 @@ window.onload = function () {
         });
     }
 
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            // Dacă suntem în mijlocul unui desen, îl oprim
+            if (drawInteraction) {
+                drawInteraction.abortDrawing();
+                map.removeInteraction(drawInteraction);
+            }
+            if (snapInteraction) {
+                map.removeInteraction(snapInteraction);
+            }
+            
+            // Trecem meniul înapoi pe "Navigare liberă"
+            if (drawTypeSelect && drawTypeSelect.value !== 'None') {
+                drawTypeSelect.value = 'None';
+                addDrawInteraction(); 
+            }
+            
+            console.log("Modul de desenare a fost anulat via tasta Escape.");
+        }
+    });
+
     if (fetchCopernicusBtn) {
         fetchCopernicusBtn.addEventListener('click', function () {
             satelliteSource.clear();
