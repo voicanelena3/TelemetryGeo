@@ -32,13 +32,48 @@ window.onload = function () {
     const wktFormat = new ol.format.WKT();
     const geojsonFormat = new ol.format.GeoJSON();
 
+    function cloudCoverColor(percent, alpha) {
+        let r, g, b;
+        if (percent <= 25) {
+            const t = percent / 25;
+            r = Math.round(34 + t * (255 - 34));
+            g = Math.round(197 - t * 47);
+            b = Math.round(94 - t * 94);
+        } else if (percent <= 60) {
+            const t = (percent - 25) / 35;
+            r = 255;
+            g = Math.round(150 - t * 130);
+            b = 0;
+        } else {
+            const t = (percent - 60) / 40;
+            r = 255;
+            g = Math.round(20 - t * 20);
+            b = 0;
+        }
+        return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    }
+
+    function cloudCoverLabel(percent) {
+        if (percent <= 10) return '\u2600\ufe0f Cer aproape senin';
+        if (percent <= 25) return '\ud83c\udf24\ufe0f Par\u021bial \u00eennorat';
+        if (percent <= 50) return '\u26c5 Moderat \u00eennorat';
+        if (percent <= 75) return '\ud83c\udf25\ufe0f Predominant \u00eennorat';
+        return '\u2601\ufe0f \u00cennorare ridicat\u0103';
+    }
+
+    function satelliteStyleFn(feature) {
+        const cc = feature.get('eo:cloud_cover') ?? feature.get('cloudCover') ?? null;
+        const percent = cc !== null ? parseFloat(cc) : 50;
+        return new ol.style.Style({
+            stroke: new ol.style.Stroke({ color: cloudCoverColor(percent, 0.9), width: 2 }),
+            fill: new ol.style.Fill({ color: cloudCoverColor(percent, 0.12) })
+        });
+    }
+
     const satelliteSource = new ol.source.Vector();
     const satelliteLayer = new ol.layer.Vector({
         source: satelliteSource,
-        style: new ol.style.Style({
-            stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 255, 0.8)', width: 1.5 }),
-            fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.05)' })
-        })
+        style: satelliteStyleFn
     });
     map.addLayer(satelliteLayer);
 
@@ -71,14 +106,32 @@ window.onload = function () {
         source: drawSource,
         style: new ol.style.Style({
             fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.2)' }),
-            stroke: new ol.style.Stroke({ color: '#ffcc33', width: 2.5 })
+            stroke: new ol.style.Stroke({ color: '#ffcc33', width: 2.5 }),
+            image: new ol.style.Circle({
+                radius: 7,
+                fill: new ol.style.Fill({ color: '#ffcc33' }),
+                stroke: new ol.style.Stroke({ color: '#7c4a03', width: 1.5 })
+            })
         })
     });
     map.addLayer(drawLayer);
 
-    
-    let sentinelCanvas = null;     
-    let sentinelBbox4326 = null;   
+    const searchMarkerSource = new ol.source.Vector();
+    const searchMarkerLayer = new ol.layer.Vector({
+        source: searchMarkerSource,
+        style: new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: 8,
+                fill: new ol.style.Fill({ color: '#ff3b3b' }),
+                stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+            })
+        }),
+        zIndex: 200
+    });
+    map.addLayer(searchMarkerLayer);
+
+    let sentinelCanvas = null;
+    let sentinelBbox4326 = null;
     let sentinelImgW = 0;
     let sentinelImgH = 0;
     let b02ChartInstance = null;
@@ -87,7 +140,6 @@ window.onload = function () {
     const b02Panel = document.getElementById('b02-panel');
     const b02ChartContainer = document.getElementById('b02-chart-container');
 
-   
     function storeSentinelImageInCanvas(imageUrl, bbox4326, width, height) {
         sentinelBbox4326 = bbox4326;
         sentinelImgW = width;
@@ -161,7 +213,7 @@ window.onload = function () {
         }
 
         if (pixelValues.length === 0) {
-            alert("Poligonul desenat nu se suprapune cu imaginea satelitară. Asigurați-vă că desenați peste zona gri de pe hartă.");
+            alert("Poligonul desenat nu se suprapune cu imaginea satelitară.");
             return;
         }
 
@@ -177,7 +229,6 @@ window.onload = function () {
             Math.round(i * binSize) + '–' + Math.round((i + 1) * binSize)
         );
 
-    
         const mean = pixelValues.reduce((a, b) => a + b, 0) / pixelValues.length;
         const min = Math.min(...pixelValues);
         const max = Math.max(...pixelValues);
@@ -232,40 +283,102 @@ window.onload = function () {
             }
         });
 
-        document.getElementById('b02-stats').innerHTML = `
-            <div class="b02-stat-card">
-                <div class="b02-stat-label">Pixeli</div>
-                <div class="b02-stat-value">${stats.n}</div>
-            </div>
-            <div class="b02-stat-card">
-                <div class="b02-stat-label">Medie</div>
-                <div class="b02-stat-value">${stats.mean.toFixed(1)}</div>
-            </div>
-            <div class="b02-stat-card">
-                <div class="b02-stat-label">Min</div>
-                <div class="b02-stat-value">${stats.min}</div>
-            </div>
-            <div class="b02-stat-card">
-                <div class="b02-stat-label">Max</div>
-                <div class="b02-stat-value">${stats.max}</div>
-            </div>
-            <div class="b02-stat-card">
-                <div class="b02-stat-label">Std Dev</div>
-                <div class="b02-stat-value">${stats.std.toFixed(1)}</div>
-            </div>
-            <div class="b02-stat-card">
-                <div class="b02-stat-label">Interval</div>
-                <div class="b02-stat-value">${stats.max - stats.min}</div>
-            </div>
-        `;
+        document.getElementById('b02-stat-pixeli').textContent = stats.n;
+        document.getElementById('b02-stat-medie').textContent = stats.mean.toFixed(1);
+        document.getElementById('b02-stat-min').textContent = stats.min;
+        document.getElementById('b02-stat-max').textContent = stats.max;
+        document.getElementById('b02-stat-std').textContent = stats.std.toFixed(1);
+        document.getElementById('b02-stat-interval').textContent = (stats.max - stats.min);
     }
 
     if (analyzeBtn) {
         analyzeBtn.addEventListener('click', analyzeB02);
     }
 
-   
+    const cloudPanel = document.getElementById('cloud-panel');
+
+    document.getElementById('cloud-panel-close').addEventListener('click', function () {
+        cloudPanel.style.display = 'none';
+    });
+
+    function showCloudPanel(feature) {
+        const cc = feature.get('eo:cloud_cover') ?? feature.get('cloudCover') ?? null;
+        const datetime = feature.get('datetime') ?? feature.get('acquisitionDate') ?? null;
+        const id = feature.get('id') ?? '—';
+
+        const percent = cc !== null ? parseFloat(cc) : null;
+
+        const cpId = id.length > 32 ? id.substring(0, 32) + '…' : id;
+        document.getElementById('cp-id').textContent = cpId;
+
+        if (datetime) {
+            const d = new Date(datetime);
+            document.getElementById('cp-date').textContent = isNaN(d)
+                ? datetime
+                : d.toLocaleDateString('ro-RO', { year: 'numeric', month: 'long', day: 'numeric' });
+        } else {
+            document.getElementById('cp-date').textContent = '—';
+        }
+
+        if (percent !== null) {
+            document.getElementById('cp-cc').textContent = percent.toFixed(1) + '%';
+            document.getElementById('cp-label').textContent = cloudCoverLabel(percent);
+            const bar = document.getElementById('cp-bar');
+            bar.style.width = Math.min(percent, 100) + '%';
+            bar.style.background = 'linear-gradient(90deg,' + cloudCoverColor(0, 0.9) + ',' + cloudCoverColor(percent, 0.9) + ')';
+        } else {
+            document.getElementById('cp-cc').textContent = 'Nedisponibil';
+            document.getElementById('cp-label').textContent = 'Date cloud cover absente din metadata produsului';
+            document.getElementById('cp-bar').style.width = '0%';
+        }
+
+        cloudPanel.style.display = 'block';
+    }
+
+    const tooltip = document.getElementById('map-tooltip');
+
+    map.on('pointermove', function (e) {
+        const feature = map.forEachFeatureAtPixel(e.pixel, function (f, layer) {
+            if (layer === satelliteLayer) return f;
+            return null;
+        });
+
+        if (feature) {
+            const cc = feature.get('eo:cloud_cover') ?? feature.get('cloudCover') ?? null;
+            const datetime = feature.get('datetime') ?? feature.get('acquisitionDate') ?? null;
+            const dateStr = datetime ? new Date(datetime).toLocaleDateString('ro-RO') : 'Dată necunoscută';
+            const ccStr = cc !== null ? parseFloat(cc).toFixed(1) + '% acoperire nori' : 'Cloud cover nedisponibil';
+
+            document.getElementById('tooltip-date').textContent = dateStr;
+            document.getElementById('tooltip-cc').textContent   = ccStr;
+            tooltip.style.display = 'block';
+            tooltip.style.left = (e.originalEvent.pageX + 14) + 'px';
+            tooltip.style.top = (e.originalEvent.pageY - 10) + 'px';
+            map.getTargetElement().style.cursor = 'pointer';
+        } else {
+            tooltip.style.display = 'none';
+            if (!drawTypeSelect || drawTypeSelect.value === 'None' || drawTypeSelect.value === 'Navigare liberă') {
+                map.getTargetElement().style.cursor = '';
+            }
+        }
+    });
+
     let uploadedExtent = null;
+    let dataExtent = null;
+    const btnRecenter = document.getElementById('btn-recenter');
+
+    function setDataExtent(extent) {
+        if (!extent || extent.some(v => !isFinite(v))) return;
+        dataExtent = extent;
+        if (btnRecenter) btnRecenter.disabled = false;
+    }
+
+    if (btnRecenter) {
+        btnRecenter.addEventListener('click', function () {
+            if (!dataExtent) return;
+            map.getView().fit(dataExtent, { duration: 1000, padding: [50, 50, 50, 50], maxZoom: 16 });
+        });
+    }
 
     $('#json-file').on('change', function (e) {
         const file = e.target.files[0];
@@ -303,6 +416,7 @@ window.onload = function () {
                 if (manualFeaturesArray.length > 0) {
                     vectorSource.addFeatures(manualFeaturesArray);
                     uploadedExtent = vectorSource.getExtent();
+                    setDataExtent(uploadedExtent);
                     map.getView().fit(uploadedExtent, { duration: 1200, padding: [50, 50, 50, 50] });
                 } else {
                     alert("Nu s-au găsit geometrii valide.");
@@ -314,64 +428,114 @@ window.onload = function () {
         reader.readAsText(file);
     });
 
-  
+    const clearSearchBtn = document.getElementById('clear-search');
+
+    function updateClearSearchVisibility() {
+        if (!clearSearchBtn) return;
+        const hasText = $('#search').val().trim().length > 0;
+        clearSearchBtn.style.display = hasText ? 'flex' : 'none';
+    }
+
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', function () {
+            $('#search').val('').trigger('focus');
+            $('#search-results').empty().hide();
+            searchMarkerSource.clear();
+            if (searchDebounceTimer) { clearTimeout(searchDebounceTimer); searchDebounceTimer = null; }
+            if (currentSearchXhr) { currentSearchXhr.abort(); currentSearchXhr = null; }
+            updateClearSearchVisibility();
+        });
+    }
+
+    let searchDebounceTimer = null;
+    let currentSearchXhr = null;
+    let searchRequestSeq = 0;
+
     $('#search').on('input', function () {
         const query = $(this).val().trim();
         const resultsContainer = $('#search-results');
 
+        updateClearSearchVisibility();
+
+        if (searchDebounceTimer) {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = null;
+        }
+
         if (query.length < 2) {
             resultsContainer.empty().hide();
+            if (currentSearchXhr) {
+                currentSearchXhr.abort();
+                currentSearchXhr = null;
+            }
             return;
         }
 
-        const geonamesUsername = 'bambiiiiiiiiiiiiiiii';
-        const geonamesUrl = `https://secure.geonames.org/searchJSON?name_startsWith=${encodeURIComponent(query)}&maxRows=10&orderby=relevance&isNameRequired=true&username=${geonamesUsername}`;
+        searchDebounceTimer = setTimeout(function () {
+            const requestId = ++searchRequestSeq;
 
-        $.ajax({
-            url: geonamesUrl,
-            method: 'GET',
-            dataType: 'json',
-            success: function (data) {
-                resultsContainer.empty();
+            if (currentSearchXhr) {
+                currentSearchXhr.abort();
+            }
 
-                if (!data || !data.geonames || data.geonames.length === 0) {
-                    resultsContainer.hide();
-                    return;
-                }
+            const geonamesUsername = 'bambiiiiiiiiiiiiiiii';
+            const geonamesUrl = 'https://secure.geonames.org/searchJSON?name_startsWith=' + encodeURIComponent(query) + '&maxRows=10&orderby=relevance&isNameRequired=true&username=' + geonamesUsername;
 
-                resultsContainer.show();
+            currentSearchXhr = $.ajax({
+                url: geonamesUrl,
+                method: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                    if (requestId !== searchRequestSeq) return;
+                    if ($('#search').val().trim() !== query) return;
 
-                data.geonames.forEach(function (location) {
-                    const regiune = location.adminName1 ? location.adminName1 + ', ' : '';
-                    const item = $(`
-                        <div class="search-result-item" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #333;">
-                            <div class="search-result-name" style="font-weight: bold; color: #fff;">${location.name}</div>
-                            <div class="search-result-country" style="font-size: 11px; color: #aaa;">${regiune}${location.countryName}</div>
-                        </div>
-                    `);
+                    resultsContainer.empty();
 
-                    item.on('click', function () {
-                        const lon = parseFloat(location.lng);
-                        const lat = parseFloat(location.lat);
+                    if (!data || !data.geonames || data.geonames.length === 0) {
+                        resultsContainer.hide();
+                        return;
+                    }
 
-                        map.getView().animate({
-                            center: ol.proj.fromLonLat([lon, lat]),
-                            zoom: 11,
-                            duration: 1200,
-                            easing: ol.easing.easeOut
+                    resultsContainer.show();
+
+                    data.geonames.forEach(function (location) {
+                        const regiune = location.adminName1 ? location.adminName1 + ', ' : '';
+                        const item = $('<div class="search-result-item" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #333;">' +
+                            '<div class="search-result-name" style="font-weight:bold;color:#fff;">' + location.name + '</div>' +
+                            '<div class="search-result-country" style="font-size:11px;color:#aaa;">' + regiune + location.countryName + '</div>' +
+                            '</div>');
+
+                        item.on('click', function () {
+                            const lon = parseFloat(location.lng);
+                            const lat = parseFloat(location.lat);
+                            const coord = ol.proj.fromLonLat([lon, lat]);
+
+                            map.getView().animate({
+                                center: coord,
+                                zoom: 11,
+                                duration: 1200,
+                                easing: ol.easing.easeOut
+                            });
+
+                            searchMarkerSource.clear();
+                            searchMarkerSource.addFeature(new ol.Feature({
+                                geometry: new ol.geom.Point(coord)
+                            }));
+
+                            $('#search').val(location.name + ', ' + location.countryName);
+                            resultsContainer.empty().hide();
+                            updateClearSearchVisibility();
                         });
 
-                        $('#search').val(`${location.name}, ${location.countryName}`);
-                        resultsContainer.empty().hide();
+                        resultsContainer.append(item);
                     });
-
-                    resultsContainer.append(item);
-                });
-            },
-            error: function () {
-                console.error("Eroare la preluarea sugestiilor Geonames.");
-            }
-        });
+                },
+                error: function (jqXHR) {
+                    if (jqXHR.statusText === 'abort') return;
+                    console.error("Eroare la preluarea sugestiilor Geonames.");
+                }
+            });
+        }, 300);
     });
 
     $(document).on('click', function (e) {
@@ -380,18 +544,82 @@ window.onload = function () {
         }
     });
 
-   
     let selectedFeaturesArray = [];
     const selectedStyle = new ol.style.Style({
         stroke: new ol.style.Stroke({ color: '#ffffff', width: 3 }),
         fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.4)' })
     });
 
+    const statsPanel = document.getElementById('stats-panel');
+    const areaValEl = document.getElementById('area-val');
+    const percent1ValEl = document.getElementById('percent1-val');
+    const percent2ValEl = document.getElementById('percent2-val');
+    const progress1BarEl = document.getElementById('progress1-bar');
+    const progress2BarEl = document.getElementById('progress2-bar');
+
+    function bboxDiagonalKm(geojsonFeature) {
+        const bbox = turf.bbox(geojsonFeature);
+        return turf.distance(
+            turf.point([bbox[0], bbox[1]]),
+            turf.point([bbox[2], bbox[3]]),
+            { units: 'kilometers' }
+        );
+    }
+
+    function lineToPolygon(geojsonFeature) {
+        const coords = geojsonFeature.geometry.coordinates;
+        if (!coords || coords.length < 3) return null;
+
+        const first = coords[0];
+        const last = coords[coords.length - 1];
+        const ring = coords.slice();
+        if (first[0] !== last[0] || first[1] !== last[1]) ring.push(first);
+
+        try {
+            const poly = turf.polygon([ring]);
+            const area = turf.area(poly);
+            if (!area || area <= 0) return null;
+            return turf.buffer(poly, 0, { units: 'kilometers' });
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function toIntersectablePolygon(geojsonFeature, otherFeature) {
+        const geomType = geojsonFeature.geometry.type;
+        if (geomType === 'Polygon' || geomType === 'MultiPolygon') {
+            return turf.buffer(geojsonFeature, 0, { units: 'kilometers' });
+        }
+
+        if (geomType === 'LineString') {
+            const asPolygon = lineToPolygon(geojsonFeature);
+            if (asPolygon) return asPolygon;
+        }
+
+        const refDiag = Math.max(
+            bboxDiagonalKm(geojsonFeature),
+            otherFeature ? bboxDiagonalKm(otherFeature) : 0,
+            0.1
+        );
+        const bufferKm = Math.max(refDiag * 0.02, 0.05);
+        return turf.buffer(geojsonFeature, bufferKm, { units: 'kilometers' });
+    }
+
     map.on('click', function (e) {
         if (drawTypeSelect && drawTypeSelect.value !== 'None' && drawTypeSelect.value !== 'Navigare liberă') return;
 
+        const sentinelFeature = map.forEachFeatureAtPixel(e.pixel, function (f, layer) {
+            if (layer === satelliteLayer) return f;
+            return null;
+        });
+        if (sentinelFeature) {
+            showCloudPanel(sentinelFeature);
+            return;
+        }
+
         const clickedFeature = map.forEachFeatureAtPixel(e.pixel, function (feature, layer) {
             if (layer === intersectionLayer) return null;
+            if (layer === satelliteLayer) return null;
             return feature;
         });
 
@@ -399,12 +627,15 @@ window.onload = function () {
             selectedFeaturesArray.forEach(f => f.setStyle(null));
             selectedFeaturesArray = [];
             intersectionSource.clear();
+            if (statsPanel) statsPanel.classList.add('hidden');
             return;
         }
 
         if (selectedFeaturesArray.includes(clickedFeature)) {
             clickedFeature.setStyle(null);
             selectedFeaturesArray = selectedFeaturesArray.filter(f => f !== clickedFeature);
+            intersectionSource.clear();
+            if (statsPanel) statsPanel.classList.add('hidden');
             return;
         }
 
@@ -412,6 +643,7 @@ window.onload = function () {
             selectedFeaturesArray.forEach(f => f.setStyle(null));
             selectedFeaturesArray = [];
             intersectionSource.clear();
+            if (statsPanel) statsPanel.classList.add('hidden');
         }
 
         selectedFeaturesArray.push(clickedFeature);
@@ -419,15 +651,15 @@ window.onload = function () {
 
         if (selectedFeaturesArray.length === 2) {
             try {
-                let feat1 = geojsonFormat.writeFeatureObject(selectedFeaturesArray[0], {
+                const feat1Raw = geojsonFormat.writeFeatureObject(selectedFeaturesArray[0], {
                     featureProjection: map.getView().getProjection(), dataProjection: 'EPSG:4326'
                 });
-                let feat2 = geojsonFormat.writeFeatureObject(selectedFeaturesArray[1], {
+                const feat2Raw = geojsonFormat.writeFeatureObject(selectedFeaturesArray[1], {
                     featureProjection: map.getView().getProjection(), dataProjection: 'EPSG:4326'
                 });
 
-                feat1 = turf.buffer(feat1, 0, { units: 'kilometers' });
-                feat2 = turf.buffer(feat2, 0, { units: 'kilometers' });
+                const feat1 = toIntersectablePolygon(feat1Raw, feat2Raw);
+                const feat2 = toIntersectablePolygon(feat2Raw, feat1Raw);
 
                 const intersectie = turf.intersect(turf.featureCollection([feat1, feat2]));
 
@@ -436,16 +668,31 @@ window.onload = function () {
                         dataProjection: 'EPSG:4326', featureProjection: map.getView().getProjection()
                     });
                     intersectionSource.addFeatures([olIntersectie]);
+
+                    const areaM2 = turf.area(intersectie);
+                    const areaKm2 = areaM2 / 1e6;
+                    const area1Km2 = turf.area(feat1) / 1e6;
+                    const area2Km2 = turf.area(feat2) / 1e6;
+                    const percent1 = area1Km2 > 0 ? Math.min((areaKm2 / area1Km2) * 100, 100) : 0;
+                    const percent2 = area2Km2 > 0 ? Math.min((areaKm2 / area2Km2) * 100, 100) : 0;
+
+                    if (areaValEl) areaValEl.textContent = areaKm2.toFixed(2);
+                    if (percent1ValEl) percent1ValEl.textContent = percent1.toFixed(1) + '%';
+                    if (percent2ValEl) percent2ValEl.textContent = percent2.toFixed(1) + '%';
+                    if (progress1BarEl) progress1BarEl.style.width = percent1 + '%';
+                    if (progress2BarEl) progress2BarEl.style.width = percent2 + '%';
+                    if (statsPanel) statsPanel.classList.remove('hidden');
                 } else {
-                    alert("Poligoanele nu se intersectează.");
+                    if (statsPanel) statsPanel.classList.add('hidden');
+                    alert("Geometriile nu se intersectează.");
                 }
             } catch (err) {
                 console.error("Eroare la calcul intersecție Turf:", err);
+                if (statsPanel) statsPanel.classList.add('hidden');
             }
         }
     });
 
-   
     let drawInteraction, snapInteraction;
     const drawTypeSelect = document.getElementById('draw-type');
     const clearDrawButton = document.getElementById('clear-draw');
@@ -474,6 +721,19 @@ window.onload = function () {
     }
     addDrawInteraction();
 
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape' && e.keyCode !== 27) return;
+
+        if (drawInteraction) {
+            drawInteraction.abortDrawing();
+        }
+
+        if (drawTypeSelect && drawTypeSelect.value !== 'None') {
+            drawTypeSelect.value = 'None';
+            drawTypeSelect.dispatchEvent(new Event('change'));
+        }
+    });
+
     function resetSentinelImageLayer() {
         map.removeLayer(sentinelImageLayer);
         sentinelImageLayer = new ol.layer.Image({ source: null });
@@ -483,20 +743,19 @@ window.onload = function () {
     if (clearDrawButton) {
         clearDrawButton.addEventListener('click', function () {
             drawSource.clear();
-            satelliteSource.clear();
-            intersectionSource.clear();
-            vectorSource.clear();
+            selectedFeaturesArray.forEach(f => f.setStyle(null));
             selectedFeaturesArray = [];
-            resetSentinelImageLayer();
+            intersectionSource.clear();
+            if (statsPanel) statsPanel.classList.add('hidden');
 
             sentinelCanvas = null;
             sentinelBbox4326 = null;
-            analyzeBtn.disabled = true;
-            b02Panel.classList.remove('expanded');
-            b02ChartContainer.classList.add('hidden');
+            if (analyzeBtn) analyzeBtn.disabled = true;
+            if (b02Panel) b02Panel.classList.remove('expanded');
+            if (b02ChartContainer) b02ChartContainer.classList.add('hidden');
             if (b02ChartInstance) { b02ChartInstance.destroy(); b02ChartInstance = null; }
 
-            console.log("Toate straturile și geometriile au fost șterse.");
+            console.log("Geometriile desenate și intersecția au fost șterse.");
         });
     }
 
@@ -521,11 +780,11 @@ window.onload = function () {
         });
     }
 
-
     if (fetchCopernicusBtn) {
         fetchCopernicusBtn.addEventListener('click', async function () {
             satelliteSource.clear();
             resetSentinelImageLayer();
+            cloudPanel.style.display = 'none';
 
             let targetGeoJSON = null;
             const features = drawSource.getFeatures();
@@ -572,7 +831,7 @@ window.onload = function () {
             }
 
             try {
-                console.log("Se trimite la Sentinel Hub geometria curățată:", JSON.stringify(targetGeoJSON));
+                console.log("Se trimite la Sentinel Hub geometria:", JSON.stringify(targetGeoJSON));
 
                 const products = await searchSentinelProducts(targetGeoJSON);
 
@@ -587,13 +846,19 @@ window.onload = function () {
                             dataProjection: 'EPSG:4326',
                             featureProjection: map.getView().getProjection()
                         });
-                        olFeature.set('id', product.id || `SENTINEL_PROD_${index}`);
+                        olFeature.set('id', product.id || ('SENTINEL_PROD_' + index));
+                        if (product.properties) {
+                            Object.keys(product.properties).forEach(function(key) {
+                                olFeature.set(key, product.properties[key]);
+                            });
+                        }
                         satelliteSource.addFeatures([olFeature]);
                     }
                 });
-                console.log(`Succes! S-au mapat ${products.length} poligoane de satelit.`);
 
-                // Generam imaginea reala Sentinel-2 (banda B02) pentru primul produs
+                console.log("S-au mapat " + products.length + " poligoane de satelit.");
+                setDataExtent(satelliteSource.getExtent());
+
                 const firstProduct = products[0];
                 if (firstProduct && firstProduct.geometry) {
                     const geomFeature = geojsonFormat.readFeature(firstProduct.geometry, {
@@ -617,10 +882,7 @@ window.onload = function () {
                     let imgWidth = Math.min(Math.max(Math.ceil(widthMeters / MAX_RES), 64), MAX_PX);
                     let imgHeight = Math.min(Math.max(Math.ceil(heightMeters / MAX_RES), 64), MAX_PX);
 
-                    console.log(`Dimensiuni imagine: ${imgWidth}x${imgHeight} px`);
-
                     try {
-                        console.log("Se genereaza imaginea Sentinel-2 (banda B02)...");
                         const imageUrl = await fetchSentinelImage(bbox4326, dateFrom, dateTo, imgWidth, imgHeight);
 
                         const imageExtent3857 = ol.proj.transformExtent(
@@ -638,12 +900,12 @@ window.onload = function () {
                         });
                         map.addLayer(sentinelImageLayer);
 
+                        setDataExtent(imageExtent3857);
                         storeSentinelImageInCanvas(imageUrl, bbox4326, imgWidth, imgHeight);
-
                         console.log("Imagine Sentinel-2 afișată cu succes!");
                     } catch (imgErr) {
                         console.error("Eroare la generarea imaginii Sentinel:", imgErr);
-                        alert("Nu s-a putut genera imaginea satelitară. Verifică consola pentru detalii.");
+                        alert("Nu s-a putut genera imaginea satelitară.");
                     }
                 }
             } catch (error) {
