@@ -32,24 +32,16 @@ window.onload = function () {
     const wktFormat = new ol.format.WKT();
     const geojsonFormat = new ol.format.GeoJSON();
 
-    // Layer pentru poligoanele "footprint" ale produselor Sentinel (raman afisate ca referinta)
     const satelliteSource = new ol.source.Vector();
-
     const satelliteLayer = new ol.layer.Vector({
         source: satelliteSource,
         style: new ol.style.Style({
-            stroke: new ol.style.Stroke({
-                color: 'rgba(255, 255, 255, 0.8)',
-                width: 1.5
-            }),
-            fill: new ol.style.Fill({
-                color: 'rgba(255, 255, 255, 0.05)'
-            })
+            stroke: new ol.style.Stroke({ color: 'rgba(255, 255, 255, 0.8)', width: 1.5 }),
+            fill: new ol.style.Fill({ color: 'rgba(255, 255, 255, 0.05)' })
         })
     });
     map.addLayer(satelliteLayer);
 
-    // Layer pentru imaginea reala Sentinel-2 (banda B02, normalizata), suprapusa pe harta
     let sentinelImageLayer = new ol.layer.Image({ source: null });
     map.addLayer(sentinelImageLayer);
 
@@ -84,6 +76,195 @@ window.onload = function () {
     });
     map.addLayer(drawLayer);
 
+    
+    let sentinelCanvas = null;     
+    let sentinelBbox4326 = null;   
+    let sentinelImgW = 0;
+    let sentinelImgH = 0;
+    let b02ChartInstance = null;
+
+    const analyzeBtn = document.getElementById('btn-analyze-b02');
+    const b02Panel = document.getElementById('b02-panel');
+    const b02ChartContainer = document.getElementById('b02-chart-container');
+
+   
+    function storeSentinelImageInCanvas(imageUrl, bbox4326, width, height) {
+        sentinelBbox4326 = bbox4326;
+        sentinelImgW = width;
+        sentinelImgH = height;
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () {
+            sentinelCanvas = document.createElement('canvas');
+            sentinelCanvas.width = width;
+            sentinelCanvas.height = height;
+            const ctx = sentinelCanvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            analyzeBtn.disabled = false;
+            console.log("Canvas B02 pregatit pentru analiza.");
+        };
+        img.src = imageUrl;
+    }
+
+    function analyzeB02() {
+        if (!sentinelCanvas || !sentinelBbox4326) {
+            alert("Nu există imagine satelitară. Apăsați mai întâi 'Caută Date'.");
+            return;
+        }
+
+        const drawFeatures = drawSource.getFeatures();
+        if (drawFeatures.length === 0) {
+            alert("Desenați un poligon peste imaginea satelitară, apoi apăsați 'Analizează B02'.");
+            return;
+        }
+
+        const polygon = drawFeatures[drawFeatures.length - 1];
+        const geom = polygon.getGeometry();
+
+        if (geom.getType() !== 'Polygon') {
+            alert("Selectați un poligon (nu linie sau punct) pentru analiza B02.");
+            return;
+        }
+
+        const geom4326 = geom.clone().transform(map.getView().getProjection(), 'EPSG:4326');
+        const turfPoly = turf.feature({
+            type: 'Polygon',
+            coordinates: geom4326.getCoordinates()
+        });
+
+        const [minLon, minLat, maxLon, maxLat] = sentinelBbox4326;
+        const ctx = sentinelCanvas.getContext('2d');
+
+        const SAMPLES = 100;
+        const polyExtent = geom4326.getExtent();
+        const lonStep = (polyExtent[2] - polyExtent[0]) / SAMPLES;
+        const latStep = (polyExtent[3] - polyExtent[1]) / SAMPLES;
+        const pixelValues = [];
+
+        for (let i = 0; i <= SAMPLES; i++) {
+            for (let j = 0; j <= SAMPLES; j++) {
+                const lon = polyExtent[0] + i * lonStep;
+                const lat = polyExtent[1] + j * latStep;
+
+                const pt = turf.point([lon, lat]);
+                if (!turf.booleanPointInPolygon(pt, turfPoly)) continue;
+
+                const cx = Math.floor((lon - minLon) / (maxLon - minLon) * sentinelImgW);
+                const cy = Math.floor((maxLat - lat) / (maxLat - minLat) * sentinelImgH);
+
+                if (cx < 0 || cy < 0 || cx >= sentinelImgW || cy >= sentinelImgH) continue;
+
+                const pixel = ctx.getImageData(cx, cy, 1, 1).data;
+                pixelValues.push(pixel[0]);
+            }
+        }
+
+        if (pixelValues.length === 0) {
+            alert("Poligonul desenat nu se suprapune cu imaginea satelitară. Asigurați-vă că desenați peste zona gri de pe hartă.");
+            return;
+        }
+
+        const BINS = 16;
+        const binSize = 256 / BINS;
+        const counts = new Array(BINS).fill(0);
+        pixelValues.forEach(v => {
+            const bin = Math.min(Math.floor(v / binSize), BINS - 1);
+            counts[bin]++;
+        });
+
+        const labels = counts.map((_, i) =>
+            Math.round(i * binSize) + '–' + Math.round((i + 1) * binSize)
+        );
+
+    
+        const mean = pixelValues.reduce((a, b) => a + b, 0) / pixelValues.length;
+        const min = Math.min(...pixelValues);
+        const max = Math.max(...pixelValues);
+        const std = Math.sqrt(
+            pixelValues.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / pixelValues.length
+        );
+
+        renderHistogram(labels, counts, { mean, min, max, std, n: pixelValues.length });
+    }
+
+    function renderHistogram(labels, counts, stats) {
+        b02Panel.classList.add('expanded');
+        b02ChartContainer.classList.remove('hidden');
+
+        if (b02ChartInstance) b02ChartInstance.destroy();
+
+        const ctx = document.getElementById('b02-chart').getContext('2d');
+        b02ChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Pixeli',
+                    data: counts,
+                    backgroundColor: 'rgba(99, 179, 237, 0.65)',
+                    borderColor: 'rgba(99, 179, 237, 1)',
+                    borderWidth: 1,
+                    borderRadius: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: 'Histogramă Banda B02',
+                        color: '#e2e8f0',
+                        font: { size: 11, weight: '600' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#718096', font: { size: 8 }, maxRotation: 45 },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y: {
+                        ticks: { color: '#718096', font: { size: 9 } },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    }
+                }
+            }
+        });
+
+        document.getElementById('b02-stats').innerHTML = `
+            <div class="b02-stat-card">
+                <div class="b02-stat-label">Pixeli</div>
+                <div class="b02-stat-value">${stats.n}</div>
+            </div>
+            <div class="b02-stat-card">
+                <div class="b02-stat-label">Medie</div>
+                <div class="b02-stat-value">${stats.mean.toFixed(1)}</div>
+            </div>
+            <div class="b02-stat-card">
+                <div class="b02-stat-label">Min</div>
+                <div class="b02-stat-value">${stats.min}</div>
+            </div>
+            <div class="b02-stat-card">
+                <div class="b02-stat-label">Max</div>
+                <div class="b02-stat-value">${stats.max}</div>
+            </div>
+            <div class="b02-stat-card">
+                <div class="b02-stat-label">Std Dev</div>
+                <div class="b02-stat-value">${stats.std.toFixed(1)}</div>
+            </div>
+            <div class="b02-stat-card">
+                <div class="b02-stat-label">Interval</div>
+                <div class="b02-stat-value">${stats.max - stats.min}</div>
+            </div>
+        `;
+    }
+
+    if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', analyzeB02);
+    }
+
+   
     let uploadedExtent = null;
 
     $('#json-file').on('change', function (e) {
@@ -133,6 +314,7 @@ window.onload = function () {
         reader.readAsText(file);
     });
 
+  
     $('#search').on('input', function () {
         const query = $(this).val().trim();
         const resultsContainer = $('#search-results');
@@ -198,6 +380,7 @@ window.onload = function () {
         }
     });
 
+   
     let selectedFeaturesArray = [];
     const selectedStyle = new ol.style.Style({
         stroke: new ol.style.Stroke({ color: '#ffffff', width: 3 }),
@@ -262,29 +445,23 @@ window.onload = function () {
         }
     });
 
+   
     let drawInteraction, snapInteraction;
     const drawTypeSelect = document.getElementById('draw-type');
-    const clearDrawButton = document.getElementById('clear-draw') || document.querySelector('.btn-danger') || document.getElementById('clear-btn');
-    const exportGeojsonBtn = document.getElementById('export-geojson') || document.querySelector('button[id*="export"]') || document.querySelector('.btn-primary:not(#btn-fetch-copernicus)');
-
-    // DEFINIREA CORECTĂ A BUTONULUI COPERNICUS
+    const clearDrawButton = document.getElementById('clear-draw');
+    const exportGeojsonBtn = document.getElementById('btn-export-geojson');
     const fetchCopernicusBtn = document.getElementById('btn-fetch-copernicus');
 
     function addDrawInteraction() {
         if (!drawTypeSelect) return;
         let value = drawTypeSelect.value;
         if (value === 'Navigare liberă') value = 'None';
-        
-        const mapElement = document.getElementById('map');
 
         if (value !== 'None') {
-            mapElement.classList.add('drawing-mode');
             drawInteraction = new ol.interaction.Draw({ source: drawSource, type: value });
             map.addInteraction(drawInteraction);
-            snapInteraction = new ol.interaction.Snap({ source: drawSource, pixelTolerance: 15 });
+            snapInteraction = new ol.interaction.Snap({ source: drawSource });
             map.addInteraction(snapInteraction);
-        } else {
-            mapElement.classList.remove('drawing-mode');
         }
     }
 
@@ -297,6 +474,12 @@ window.onload = function () {
     }
     addDrawInteraction();
 
+    function resetSentinelImageLayer() {
+        map.removeLayer(sentinelImageLayer);
+        sentinelImageLayer = new ol.layer.Image({ source: null });
+        map.addLayer(sentinelImageLayer);
+    }
+
     if (clearDrawButton) {
         clearDrawButton.addEventListener('click', function () {
             drawSource.clear();
@@ -304,11 +487,14 @@ window.onload = function () {
             intersectionSource.clear();
             vectorSource.clear();
             selectedFeaturesArray = [];
+            resetSentinelImageLayer();
 
-            // Curatam si imaginea Sentinel reala afisata pe harta
-            map.removeLayer(sentinelImageLayer);
-            sentinelImageLayer = new ol.layer.Image({ source: null });
-            map.addLayer(sentinelImageLayer);
+            sentinelCanvas = null;
+            sentinelBbox4326 = null;
+            analyzeBtn.disabled = true;
+            b02Panel.classList.remove('expanded');
+            b02ChartContainer.classList.add('hidden');
+            if (b02ChartInstance) { b02ChartInstance.destroy(); b02ChartInstance = null; }
 
             console.log("Toate straturile și geometriile au fost șterse.");
         });
@@ -335,32 +521,11 @@ window.onload = function () {
         });
     }
 
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            if (drawInteraction) {
-                drawInteraction.abortDrawing();
-                map.removeInteraction(drawInteraction);
-            }
-            if (snapInteraction) {
-                map.removeInteraction(snapInteraction);
-            }
-            if (drawTypeSelect && drawTypeSelect.value !== 'None') {
-                drawTypeSelect.value = 'None';
-                addDrawInteraction(); 
-            }
-            
-            console.log("Modul de desenare a fost anulat via tasta Escape.");
-        }
-    });
 
     if (fetchCopernicusBtn) {
         fetchCopernicusBtn.addEventListener('click', async function () {
             satelliteSource.clear();
-
-            // Curatam imaginea Sentinel veche, daca exista una de la o cautare anterioara
-            map.removeLayer(sentinelImageLayer);
-            sentinelImageLayer = new ol.layer.Image({ source: null });
-            map.addLayer(sentinelImageLayer);
+            resetSentinelImageLayer();
 
             let targetGeoJSON = null;
             const features = drawSource.getFeatures();
@@ -379,10 +544,8 @@ window.onload = function () {
                             targetGeoJSON = {
                                 type: "Polygon",
                                 coordinates: [[
-                                    [extent[0], extent[1]],
-                                    [extent[2], extent[1]],
-                                    [extent[2], extent[3]],
-                                    [extent[0], extent[3]],
+                                    [extent[0], extent[1]], [extent[2], extent[1]],
+                                    [extent[2], extent[3]], [extent[0], extent[3]],
                                     [extent[0], extent[1]]
                                 ]]
                             };
@@ -401,10 +564,8 @@ window.onload = function () {
                 targetGeoJSON = {
                     type: "Polygon",
                     coordinates: [[
-                        [extent4326[0], extent4326[1]],
-                        [extent4326[2], extent4326[1]],
-                        [extent4326[2], extent4326[3]],
-                        [extent4326[0], extent4326[3]],
+                        [extent4326[0], extent4326[1]], [extent4326[2], extent4326[1]],
+                        [extent4326[2], extent4326[3]], [extent4326[0], extent4326[3]],
                         [extent4326[0], extent4326[1]]
                     ]]
                 };
@@ -420,7 +581,6 @@ window.onload = function () {
                     return;
                 }
 
-                // Desenam footprint-urile (conturul) tuturor produselor gasite
                 products.forEach((product, index) => {
                     if (product.geometry) {
                         const olFeature = geojsonFormat.readFeature(product.geometry, {
@@ -433,55 +593,38 @@ window.onload = function () {
                 });
                 console.log(`Succes! S-au mapat ${products.length} poligoane de satelit.`);
 
-                // Generam si afisam imaginea REALA Sentinel-2 (banda B02, normalizata)
-                // pentru primul produs gasit
+                // Generam imaginea reala Sentinel-2 (banda B02) pentru primul produs
                 const firstProduct = products[0];
                 if (firstProduct && firstProduct.geometry) {
                     const geomFeature = geojsonFormat.readFeature(firstProduct.geometry, {
                         dataProjection: 'EPSG:4326',
-                        featureProjection: 'EPSG:4326' // ramanem in 4326 ca sa calculam bbox-ul corect
+                        featureProjection: 'EPSG:4326'
                     });
                     const bbox4326 = geomFeature.getGeometry().getExtent();
 
-                    // Acelasi interval de timp folosit si la cautarea in catalog
                     const dateFrom = "2024-06-01T00:00:00Z";
                     const dateTo = "2024-06-30T23:59:59Z";
 
-                    // Calculam dinamic latimea/inaltimea imaginii in functie de marimea bbox-ului,
-                    // ca sa respectam limita de rezolutie a Sentinel Hub (max 200 m/pixel pt S2L1C)
-                    // si limita superioara de pixeli acceptata de API (~2500 x 2500)
                     const [minLon, minLat, maxLon, maxLat] = bbox4326;
-                    const lonDiff = maxLon - minLon;
-                    const latDiff = maxLat - minLat;
-
-                    // Conversie aproximativa grade -> metri (la latitudinea medie a zonei)
                     const avgLat = (minLat + maxLat) / 2;
                     const metersPerDegLon = 111320 * Math.cos(avgLat * Math.PI / 180);
                     const metersPerDegLat = 110540;
+                    const widthMeters = (maxLon - minLon) * metersPerDegLon;
+                    const heightMeters = (maxLat - minLat) * metersPerDegLat;
 
-                    const widthMeters = lonDiff * metersPerDegLon;
-                    const heightMeters = latDiff * metersPerDegLat;
+                    const MAX_RES = 195;
+                    const MAX_PX = 2000;
+                    let imgWidth = Math.min(Math.max(Math.ceil(widthMeters / MAX_RES), 64), MAX_PX);
+                    let imgHeight = Math.min(Math.max(Math.ceil(heightMeters / MAX_RES), 64), MAX_PX);
 
-                    const MAX_RES_M_PER_PX = 195; // putin sub limita de 200, ca rezerva
-                    const MAX_PIXELS = 2000; // sub limita maxima a API-ului, ca rezerva
-
-                    let imgWidth = Math.ceil(widthMeters / MAX_RES_M_PER_PX);
-                    let imgHeight = Math.ceil(heightMeters / MAX_RES_M_PER_PX);
-
-                    // Limitam la maximul acceptat
-                    imgWidth = Math.min(Math.max(imgWidth, 64), MAX_PIXELS);
-                    imgHeight = Math.min(Math.max(imgHeight, 64), MAX_PIXELS);
-
-                    console.log(`Dimensiuni calculate pentru imagine: ${imgWidth}x${imgHeight} px`);
+                    console.log(`Dimensiuni imagine: ${imgWidth}x${imgHeight} px`);
 
                     try {
                         console.log("Se genereaza imaginea Sentinel-2 (banda B02)...");
                         const imageUrl = await fetchSentinelImage(bbox4326, dateFrom, dateTo, imgWidth, imgHeight);
 
                         const imageExtent3857 = ol.proj.transformExtent(
-                            bbox4326,
-                            'EPSG:4326',
-                            map.getView().getProjection()
+                            bbox4326, 'EPSG:4326', map.getView().getProjection()
                         );
 
                         map.removeLayer(sentinelImageLayer);
@@ -494,6 +637,8 @@ window.onload = function () {
                             opacity: 0.85
                         });
                         map.addLayer(sentinelImageLayer);
+
+                        storeSentinelImageInCanvas(imageUrl, bbox4326, imgWidth, imgHeight);
 
                         console.log("Imagine Sentinel-2 afișată cu succes!");
                     } catch (imgErr) {

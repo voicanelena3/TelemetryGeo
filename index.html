@@ -8,10 +8,120 @@
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.3.1/ol.css" type="text/css">
     <link rel="stylesheet" href="style.css">
-    
+
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@turf/turf@7/turf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ol@v10.3.1/dist/ol.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <style>
+        .analysis-box {
+            padding: 0 12px;
+        }
+
+        .analysis-box > label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .analysis-box > label svg {
+            width: 15px;
+            height: 15px;
+            stroke: #63b3ed;
+        }
+
+        #b02-panel {
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+            max-height: 40px;
+        }
+
+        #b02-panel.expanded {
+            max-height: 520px;
+        }
+
+        #btn-analyze-b02 {
+            width: 100%;
+            padding: 7px 0;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            background: transparent;
+            border: 1px solid #63b3ed;
+            color: #63b3ed;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+            margin-bottom: 10px;
+        }
+
+        #btn-analyze-b02:hover:not(:disabled) {
+            background: rgba(99, 179, 237, 0.15);
+        }
+
+        #btn-analyze-b02:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            border-color: #555;
+            color: #555;
+        }
+
+        #b02-chart-container {
+            padding-top: 4px;
+        }
+
+        #b02-chart-container.hidden {
+            display: none;
+        }
+
+        #b02-chart {
+            width: 100% !important;
+            max-height: 180px;
+        }
+
+        .b02-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .b02-stat-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid #2d3748;
+            border-radius: 6px;
+            padding: 6px 8px;
+            text-align: center;
+        }
+
+        .b02-stat-label {
+            font-size: 9px;
+            color: #718096;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .b02-stat-value {
+            font-size: 14px;
+            font-weight: 700;
+            color: #63b3ed;
+            margin-top: 2px;
+        }
+
+        .b02-hint {
+            font-size: 10px;
+            color: #555;
+            margin: 0 0 8px 0;
+            line-height: 1.4;
+            display: none; 
+        }
+    </style>
 </head>
 
 <body>
@@ -56,20 +166,32 @@
             <input type="file" id="json-file" accept=".json">
         </div>
 
-        <hr>
-
-        <div class="api-box">
-            <label>
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path
-                        d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 0 1 9-9" />
-                </svg>
-                <b>Copernicus Data Space</b>
-            </label>
-            <div class="api-controls" style="margin-top: 8px;">
+        <div class="api-box" style="border-top: none; padding-top: 0;">
+            <div class="api-controls" style="margin-top: 6px; padding: 0 12px;">
                 <button id="btn-fetch-copernicus" type="button" class="btn-api">
                     Caută Date
                 </button>
+            </div>
+        </div>
+
+        <hr>
+
+        <div class="analysis-box">
+            <label>
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                </svg>
+                <b>Analiză Spectral B02</b>
+            </label>
+            <div id="b02-panel">
+                <p class="b02-hint">Desenați un poligon peste imaginea satelitară, apoi apăsați butonul.</p>
+                <button id="btn-analyze-b02" type="button" disabled>
+                    Analizează B02
+                </button>
+                <div id="b02-chart-container" class="hidden">
+                    <canvas id="b02-chart"></canvas>
+                    <div class="b02-stats-grid" id="b02-stats"></div>
+                </div>
             </div>
         </div>
 
