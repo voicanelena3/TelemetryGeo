@@ -762,3 +762,235 @@ html, body {
 .drawing-mode {
     cursor: crosshair !important;
 }
+
+#cloud-panel {
+    position: absolute;
+    top: 80px;
+    right: 16px;
+    width: 255px;
+    background: linear-gradient(165deg, rgba(30, 41, 59, 0.97), rgba(15, 23, 42, 0.97));
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 12px;
+    padding: 18px 20px 16px;
+    z-index: 20;
+    color: #f8fafc;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.55);
+    backdrop-filter: blur(10px);
+    animation: sidebarIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#cloud-panel-close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: color 0.2s, background 0.2s;
+}
+#cloud-panel-close:hover {
+    color: #f8fafc;
+    background: rgba(255,255,255,0.08);
+}
+
+.cloud-panel-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #38bdf8;
+    letter-spacing: 0.5px;
+    margin-bottom: 14px;
+    padding-right: 20px;
+    text-transform: uppercase;
+}
+
+.cloud-panel-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+    gap: 8px;
+}
+
+.cloud-panel-label {
+    font-size: 11px;
+    color: #64748b;
+    white-space: nowrap;
+    padding-top: 1px;
+}
+
+.cloud-panel-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e8f0;
+    text-align: right;
+}
+
+.cloud-panel-value.cp-small {
+    font-size: 10px;
+    font-weight: 400;
+    color: #94a3b8;
+    word-break: break-all;
+}
+
+.cloud-bar-wrap {
+    margin-top: 12px;
+}
+
+.cloud-bar-bg {
+    width: 100%;
+    height: 10px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.cloud-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.6s ease;
+    background: linear-gradient(90deg, #22c55e, #ef4444);
+}
+
+.cloud-bar-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #475569;
+    margin-top: 2px;
+}
+
+.cloud-panel-status {
+    margin-top: 10px;
+    font-size: 12px;
+    text-align: center;
+    color: #cbd5e1;
+    padding: 6px 0 2px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+#map-tooltip {
+    position: fixed;
+    background: rgba(15, 23, 42, 0.93);
+    color: #f8fafc;
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 8px 12px;
+    border-radius: 7px;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    pointer-events: none;
+    z-index: 999;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+    max-width: 220px;
+}
+
+.analysis-box {
+    padding: 0 12px;
+}
+
+.analysis-box > label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.analysis-box > label svg {
+    width: 15px;
+    height: 15px;
+    stroke: #63b3ed;
+}
+
+#b02-panel {
+    overflow: hidden;
+    transition: max-height 0.4s ease;
+    max-height: 40px;
+}
+
+#b02-panel.expanded {
+    max-height: 520px;
+}
+
+#btn-analyze-b02 {
+    width: 100%;
+    padding: 7px 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    background: transparent;
+    border: 1px solid #63b3ed;
+    color: #63b3ed;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    margin-bottom: 10px;
+}
+
+#btn-analyze-b02:hover:not(:disabled) {
+    background: rgba(99, 179, 237, 0.15);
+}
+
+#btn-analyze-b02:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: #555;
+    color: #555;
+}
+
+#b02-chart-container {
+    padding-top: 4px;
+}
+
+#b02-chart-container.hidden {
+    display: none;
+}
+
+#b02-chart {
+    width: 100% !important;
+    max-height: 180px;
+}
+
+.b02-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 10px;
+}
+
+.b02-stat-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid #2d3748;
+    border-radius: 6px;
+    padding: 6px 8px;
+    text-align: center;
+}
+
+.b02-stat-label {
+    font-size: 9px;
+    color: #718096;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.b02-stat-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: #63b3ed;
+    margin-top: 2px;
+}
+
+.b02-hint {
+    font-size: 10px;
+    color: #555;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+    display: none;
+}
