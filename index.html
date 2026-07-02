@@ -14,6 +14,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
     <style>
+        /* === MOD VIZUALIZARE === */
         .viz-mode-box {
             padding: 0 12px;
         }
@@ -67,6 +68,7 @@
             transition: color 0.2s;
         }
 
+        /* === PANEL ANALIZA === */
         .analysis-box { padding: 0 12px; }
         .analysis-box > label {
             display: flex; align-items: center; gap: 8px;
@@ -111,6 +113,7 @@
         .b02-stat-label { font-size: 9px; color: #718096; text-transform: uppercase; letter-spacing: 0.06em; }
         .b02-stat-value { font-size: 14px; font-weight: 700; color: #63b3ed; margin-top: 2px; }
 
+        /* === LEGENDA NDVI === */
         .ndvi-legend {
             display: none;
             margin-top: 8px;
@@ -156,6 +159,7 @@
 
         <hr>
 
+        <!-- UPLOAD + CAUTA DATE -->
         <div class="upload-box">
             <label for="json-file">
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -168,6 +172,7 @@
             <input type="file" id="json-file" accept=".json">
         </div>
 
+        <!-- MOD VIZUALIZARE -->
         <div class="viz-mode-box" style="margin-top: 12px;">
             <label>
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -185,6 +190,7 @@
             </div>
             <div class="viz-mode-desc" id="viz-mode-desc">Banda albastru (490nm), grayscale</div>
 
+            <!-- Legenda NDVI - apare doar cand e selectat NDVI -->
             <div class="ndvi-legend" id="ndvi-legend">
                 <div class="ndvi-legend-bar"></div>
                 <div class="ndvi-legend-labels">
@@ -205,6 +211,7 @@
 
         <hr>
 
+        <!-- PANEL ANALIZA SPECTRALA -->
         <div class="analysis-box">
             <label>
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -214,6 +221,9 @@
             </label>
             <div id="b02-panel">
                 <button id="btn-analyze-b02" type="button" disabled>Analizează B02</button>
+                <p id="analyze-hint" style="font-size:10px;color:#475569;text-align:center;margin:0 0 8px;line-height:1.4;">
+                    Desenați un poligon peste imaginea satelitară, apoi apăsați butonul.
+                </p>
                 <div id="b02-chart-container" class="hidden">
                     <canvas id="b02-chart"></canvas>
                     <div class="b02-stats-grid" id="b02-stats">
@@ -369,6 +379,7 @@
     <script src="js/copernicus-api.js"></script>
     <script src="js/app.js"></script>
 
+    <!-- Logica butoanelor de mod vizualizare -->
     <script>
         document.querySelectorAll('.viz-mode-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
