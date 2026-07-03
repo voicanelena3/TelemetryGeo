@@ -665,14 +665,10 @@ html, body {
 }
 
 .legend-color{
-
     width:18px;
     height:18px;
-
     margin-right:10px;
-
     border-radius:3px;
-
     border:1px solid white;
 }
 
@@ -690,6 +686,10 @@ html, body {
 
 .legend-draw{
     background:#ffcc33;
+}
+
+.legend-search-marker {
+    background: #a855f7;
 }
 
 .legend-search-marker {
@@ -1007,3 +1007,101 @@ html, body {
     line-height: 1.4;
     display: none;
 }
+
+.temporal-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 12px;
+}
+
+.temporal-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.temporal-label {
+    font-size: 11px;
+    color: #64748b;
+    width: 42px;
+    flex-shrink: 0;
+}
+
+.temporal-select {
+    flex: 1;
+    padding: 6px 8px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 12px;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.temporal-select-year {
+    flex: 0 0 68px;
+}
+
+.temporal-select:focus { border-color: #38bdf8; }
+.temporal-select option { background: #1e293b; }
+
+.btn-compare {
+    width: 100%;
+    padding: 8px 0;
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    background: transparent;
+    border: 1px solid #38bdf8;
+    color: #38bdf8;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.btn-compare:hover:not(:disabled) { background: rgba(56, 189, 248, 0.15); }
+.btn-compare:disabled { opacity: 0.35; cursor: not-allowed; border-color: #555; color: #555; }
+
+#ndvi-compare-panel { margin-top: 12px; padding: 0 12px; }
+#ndvi-compare-panel.hidden { display: none; }
+
+.compare-charts-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.compare-chart-wrap { flex: 1; min-width: 0; }
+
+.compare-chart-title {
+    font-size: 10px;
+    color: #94a3b8;
+    text-align: center;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.compare-chart-wrap canvas { width: 100% !important; max-height: 120px; }
+
+.compare-stats {
+    border-top: 1px solid rgba(255,255,255,0.06);
+    padding-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.compare-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.compare-stat-label { font-size: 11px; color: #64748b; }
+.compare-stat-value { font-size: 12px; font-weight: 700; color: #e2e8f0; }
+.compare-stat-value.positive { color: #4ade80; }
+.compare-stat-value.negative { color: #f87171; }

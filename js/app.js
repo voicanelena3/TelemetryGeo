@@ -28,7 +28,6 @@ window.onload = function () {
     const wktFormat = new ol.format.WKT();
     const geojsonFormat = new ol.format.GeoJSON();
 
-
     function cloudCoverColor(percent, alpha) {
         let r, g, b;
         if (percent <= 25) {
@@ -51,10 +50,8 @@ window.onload = function () {
         if (percent <= 25) return '🌤️ Parțial înnorat';
         if (percent <= 50) return '⛅ Moderat înnorat';
         if (percent <= 75) return '🌥️ Predominant înnorat';
-        return '☁️ Înnorare ridicată';
+        return 'Înnorare ridicată';
     }
-
-  
 
     function satelliteStyleFn(feature) {
         const cc = feature.get('eo:cloud_cover') ?? feature.get('cloudCover') ?? null;
@@ -69,7 +66,7 @@ window.onload = function () {
     const satelliteLayer = new ol.layer.Vector({ source: satelliteSource, style: satelliteStyleFn });
     map.addLayer(satelliteLayer);
 
-    let sentinelImageLayer = new ol.layer.Image({ source: null, zIndex: 5 });
+    let sentinelImageLayer = new ol.layer.Image({ source: null, zIndex: 1 });
     map.addLayer(sentinelImageLayer);
 
     const vectorSource = new ol.source.Vector();
@@ -94,34 +91,17 @@ window.onload = function () {
     map.addLayer(intersectionLayer);
 
     const drawSource = new ol.source.Vector();
-
-    const drawStyleNormal = new ol.style.Style({
-        fill: new ol.style.Fill({ color: 'rgba(0, 255, 200, 0.15)' }),
-        stroke: new ol.style.Stroke({ color: '#00ffc8', width: 2.5 }),
-        image: new ol.style.Circle({
-            radius: 7,
-            fill: new ol.style.Fill({ color: '#00ffc8' }),
-            stroke: new ol.style.Stroke({ color: '#005a47', width: 1.5 })
-        })
-    });
-
     const drawLayer = new ol.layer.Vector({
         source: drawSource,
-        style: function(feature) {
-            if (sentinelBbox4326 && feature.getGeometry && feature.getGeometry().getType() === 'Polygon') {
-                return [
-                    new ol.style.Style({
-                        fill: new ol.style.Fill({ color: 'rgba(0, 255, 200, 0.2)' }),
-                        stroke: new ol.style.Stroke({ color: '#ffffff', width: 3.5 })
-                    }),
-                    new ol.style.Style({
-                        fill: new ol.style.Fill({ color: 'rgba(0, 255, 200, 0.2)' }),
-                        stroke: new ol.style.Stroke({ color: '#00ffc8', width: 2, lineDash: [10, 5] })
-                    })
-                ];
-            }
-            return drawStyleNormal;
-        },
+        style: new ol.style.Style({
+            fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.2)' }),
+            stroke: new ol.style.Stroke({ color: '#ffcc33', width: 2.5 }),
+            image: new ol.style.Circle({
+                radius: 7,
+                fill: new ol.style.Fill({ color: '#ffcc33' }),
+                stroke: new ol.style.Stroke({ color: '#7c4a03', width: 1.5 })
+            })
+        }),
         zIndex: 50
     });
     map.addLayer(drawLayer);
@@ -140,8 +120,6 @@ window.onload = function () {
     });
     map.addLayer(searchMarkerLayer);
 
-  
-
     let sentinelCanvas = null;      
     let sentinelBbox4326 = null;
     let sentinelImgW = 0;
@@ -154,7 +132,6 @@ window.onload = function () {
     const b02ChartContainer = document.getElementById('b02-chart-container');
     const vizModeSelect = document.getElementById('viz-mode');
 
-  
     function storeSentinelImageInCanvas(imageUrl, bbox4326, width, height) {
         sentinelBbox4326 = bbox4326;
         sentinelImgW = width;
@@ -169,13 +146,10 @@ window.onload = function () {
             const ctx = sentinelCanvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
             analyzeBtn.disabled = false;
-            drawLayer.changed();
             console.log("Canvas analiza pregatit.");
         };
         img.src = imageUrl;
     }
-
-   
 
     function analyzeSpectral() {
         if (!sentinelCanvas || !sentinelBbox4326) {
@@ -222,7 +196,7 @@ window.onload = function () {
                 if (cx < 0 || cy < 0 || cx >= sentinelImgW || cy >= sentinelImgH) continue;
 
                 const pixel = ctx.getImageData(cx, cy, 1, 1).data;
-                rawValues.push(pixel[0]); // canal R (grayscale pentru B02 si NDVI analysis)
+                rawValues.push(pixel[0]); 
             }
         }
 
@@ -267,9 +241,8 @@ window.onload = function () {
     }
 
     function buildNdviHistogram(ndviValues) {
-        // 10 bins intre -1 si +1
         const BINS = 10;
-        const binSize = 2 / BINS; // fiecare bin = 0.2 unitati NDVI
+        const binSize = 2 / BINS; 
         const counts = new Array(BINS).fill(0);
         ndviValues.forEach(v => {
             const bin = Math.min(Math.floor((v + 1) / binSize), BINS - 1);
@@ -304,8 +277,6 @@ window.onload = function () {
     function renderHistogram(labels, counts, stats, title, bgColor, borderColor, xLabel, yLabel) {
         b02Panel.classList.add('expanded');
         b02ChartContainer.classList.remove('hidden');
-        const hint = document.getElementById('analyze-hint');
-        if (hint) hint.style.display = 'none';
 
         if (b02ChartInstance) b02ChartInstance.destroy();
 
@@ -362,8 +333,6 @@ window.onload = function () {
     if (analyzeBtn) {
         analyzeBtn.addEventListener('click', analyzeSpectral);
     }
-
-  
 
     const cloudPanel = document.getElementById('cloud-panel');
 
@@ -428,7 +397,6 @@ window.onload = function () {
         }
     });
 
- 
     let uploadedExtent = null;
     let dataExtent = null;
     const btnRecenter = document.getElementById('btn-recenter');
@@ -486,8 +454,6 @@ window.onload = function () {
         };
         reader.readAsText(file);
     });
-
-
 
     const clearSearchBtn = document.getElementById('clear-search');
     let searchDebounceTimer = null;
@@ -560,8 +526,6 @@ window.onload = function () {
             $('#search-results').hide();
         }
     });
-
-
 
     let selectedFeaturesArray = [];
     const selectedStyle = new ol.style.Style({
@@ -673,8 +637,6 @@ window.onload = function () {
         }
     });
 
-    
-
     let drawInteraction, snapInteraction;
     const drawTypeSelect = document.getElementById('draw-type');
     const clearDrawButton = document.getElementById('clear-draw');
@@ -717,7 +679,7 @@ window.onload = function () {
 
     function resetSentinelImageLayer() {
         map.removeLayer(sentinelImageLayer);
-        sentinelImageLayer = new ol.layer.Image({ source: null, zIndex: 5 });
+        sentinelImageLayer = new ol.layer.Image({ source: null, zIndex: 1 });
         map.addLayer(sentinelImageLayer);
     }
 
@@ -752,7 +714,208 @@ window.onload = function () {
         });
     }
 
-    
+    const currentYear = new Date().getFullYear();
+    ['ndvi-year-1', 'ndvi-year-2'].forEach((id, idx) => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        for (let y = currentYear; y >= currentYear - 5; y--) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            if (idx === 0 && y === currentYear - 1) opt.selected = true;
+            if (idx === 1 && y === currentYear)     opt.selected = true;
+            sel.appendChild(opt);
+        }
+    });
+
+    const compareBtn   = document.getElementById('btn-compare-ndvi');
+    const comparePanel = document.getElementById('ndvi-compare-panel');
+    let ndviChart1 = null;
+    let ndviChart2 = null;
+
+    drawSource.on('addfeature', function () {
+        const hasPolygon = drawSource.getFeatures().some(f => f.getGeometry().getType() === 'Polygon');
+        if (compareBtn) compareBtn.disabled = !hasPolygon;
+    });
+    drawSource.on('removefeature', function () {
+        const hasPolygon = drawSource.getFeatures().some(f => f.getGeometry().getType() === 'Polygon');
+        if (compareBtn) compareBtn.disabled = !hasPolygon;
+    });
+
+    async function fetchNdviPixelsForPeriod(bbox4326, dateFrom, dateTo, polygon4326) {
+        const { w, h } = calcImageDimensions(bbox4326);
+
+        const ndviEvalscript = EVALSCRIPTS.ndvi_analysis;
+        const imageUrl = await fetchSentinelImage(bbox4326, dateFrom, dateTo, w, h, ndviEvalscript);
+
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width  = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+
+                const turfPoly  = turf.feature({ type: 'Polygon', coordinates: polygon4326.getCoordinates() });
+                const polyExtent = polygon4326.getExtent();
+                const [minLon, minLat, maxLon, maxLat] = bbox4326;
+                const SAMPLES = 80;
+                const lonStep = (polyExtent[2] - polyExtent[0]) / SAMPLES;
+                const latStep = (polyExtent[3] - polyExtent[1]) / SAMPLES;
+                const ndviValues = [];
+
+                for (let i = 0; i <= SAMPLES; i++) {
+                    for (let j = 0; j <= SAMPLES; j++) {
+                        const lon = polyExtent[0] + i * lonStep;
+                        const lat = polyExtent[1] + j * latStep;
+                        if (!turf.booleanPointInPolygon(turf.point([lon, lat]), turfPoly)) continue;
+
+                        const cx = Math.floor((lon - minLon) / (maxLon - minLon) * w);
+                        const cy = Math.floor((maxLat - lat) / (maxLat - minLat) * h);
+                        if (cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
+
+                        const pixel = ctx.getImageData(cx, cy, 1, 1).data;
+                        ndviValues.push(((pixel[0] / 255) * 2) - 1);
+                    }
+                }
+                resolve(ndviValues);
+            };
+            img.onerror = reject;
+            img.src = imageUrl;
+        });
+    }
+
+    function buildCompareChart(canvasId, ndviValues, title) {
+        const BINS = 10;
+        const binSize = 2 / BINS;
+        const counts = new Array(BINS).fill(0);
+        ndviValues.forEach(v => {
+            counts[Math.min(Math.floor((v + 1) / binSize), BINS - 1)]++;
+        });
+        const labels = counts.map((_, i) => {
+            const lo = (-1 + i * binSize).toFixed(1);
+            const hi = (-1 + (i + 1) * binSize).toFixed(1);
+            return lo + '→' + hi;
+        });
+        const bgColors = counts.map((_, i) => {
+            const mid = -1 + (i + 0.5) * binSize;
+            if (mid < -0.2) return 'rgba(50,50,180,0.7)';
+            if (mid < 0)    return 'rgba(220,50,30,0.7)';
+            if (mid < 0.2)  return 'rgba(240,210,30,0.7)';
+            if (mid < 0.4)  return 'rgba(100,200,60,0.7)';
+            return 'rgba(20,130,20,0.7)';
+        });
+
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        return new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: title,
+                    data: counts,
+                    backgroundColor: bgColors,
+                    borderColor: bgColors.map(c => c.replace('0.7', '1')),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: title, color: '#e2e8f0', font: { size: 12 } }
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
+            }
+        });
+    }
+
+    if (compareBtn) {
+        compareBtn.addEventListener('click', async function () {
+            const polygonFeature = drawSource.getFeatures().reverse().find(f => f.getGeometry().getType() === 'Polygon');
+            if (!polygonFeature) { alert('Desenați un poligon pe hartă înainte de comparare.'); return; }
+
+            const geom4326 = polygonFeature.getGeometry().clone().transform(map.getView().getProjection(), 'EPSG:4326');
+            const bbox4326 = geom4326.getExtent();
+
+            const m1 = document.getElementById('ndvi-month-1').value;
+            const y1 = document.getElementById('ndvi-year-1').value;
+            const m2 = document.getElementById('ndvi-month-2').value;
+            const y2 = document.getElementById('ndvi-year-2').value;
+
+            const dateFrom1 = `${y1}-${m1}-01T00:00:00Z`;
+            const dateTo1   = `${y1}-${m1}-${new Date(y1, parseInt(m1), 0).getDate()}T23:59:59Z`;
+            const dateFrom2 = `${y2}-${m2}-01T00:00:00Z`;
+            const dateTo2   = `${y2}-${m2}-${new Date(y2, parseInt(m2), 0).getDate()}T23:59:59Z`;
+
+            compareBtn.disabled = true;
+            compareBtn.textContent = 'Se încarcă...';
+
+            try {
+                const [vals1, vals2] = await Promise.all([
+                    fetchNdviPixelsForPeriod(bbox4326, dateFrom1, dateTo1, geom4326),
+                    fetchNdviPixelsForPeriod(bbox4326, dateFrom2, dateTo2, geom4326)
+                ]);
+
+                if (vals1.length === 0 || vals2.length === 0) {
+                    alert('Nu s-au putut extrage valori NDVI pentru perioada selectată. Verificați că zona are date disponibile.');
+                    return;
+                }
+
+                if (ndviChart1) { ndviChart1.destroy(); ndviChart1 = null; }
+                if (ndviChart2) { ndviChart2.destroy(); ndviChart2 = null; }
+
+                const label1 = new Date(y1, parseInt(m1) - 1).toLocaleString('ro-RO', { month: 'long', year: 'numeric' });
+                const label2 = new Date(y2, parseInt(m2) - 1).toLocaleString('ro-RO', { month: 'long', year: 'numeric' });
+
+                document.getElementById('ndvi-title-1').textContent = label1;
+                document.getElementById('ndvi-title-2').textContent = label2;
+
+                ndviChart1 = buildCompareChart('ndvi-chart-1', vals1, label1);
+                ndviChart2 = buildCompareChart('ndvi-chart-2', vals2, label2);
+
+                const mean1 = vals1.reduce((a, b) => a + b, 0) / vals1.length;
+                const mean2 = vals2.reduce((a, b) => a + b, 0) / vals2.length;
+                const delta = mean2 - mean1;
+
+                const minLen = Math.min(vals1.length, vals2.length);
+                let improved = 0, degraded = 0;
+                for (let i = 0; i < minLen; i++) {
+                    if (vals2[i] > vals1[i] + 0.02) improved++;
+                    else if (vals2[i] < vals1[i] - 0.02) degraded++;
+                }
+
+                document.getElementById('cmp-mean1').textContent   = mean1.toFixed(3);
+                document.getElementById('cmp-mean2').textContent   = mean2.toFixed(3);
+                document.getElementById('cmp-delta').textContent   = (delta >= 0 ? '+' : '') + delta.toFixed(3);
+                document.getElementById('cmp-delta').style.color   = delta >= 0 ? '#4ade80' : '#f87171';
+                document.getElementById('cmp-improved').textContent = improved + ' px (' + ((improved / minLen) * 100).toFixed(1) + '%)';
+                document.getElementById('cmp-degraded').textContent = degraded + ' px (' + ((degraded / minLen) * 100).toFixed(1) + '%)';
+
+                let verdict;
+                if (delta > 0.05)       verdict = '✅ Îmbunătățire semnificativă';
+                else if (delta > 0.01)  verdict = '🟡 Ușoară îmbunătățire';
+                else if (delta < -0.05) verdict = '🔴 Degradare semnificativă';
+                else if (delta < -0.01) verdict = '🟠 Ușoară degradare';
+                else                    verdict = '⚪ Fără schimbare semnificativă';
+                document.getElementById('cmp-verdict').textContent = verdict;
+
+                comparePanel.classList.remove('hidden');
+
+            } catch (err) {
+                console.error('Eroare comparare NDVI:', err);
+                alert('Eroare la preluarea datelor. Verificați consola.');
+            } finally {
+                compareBtn.disabled = false;
+                compareBtn.textContent = 'Compară NDVI';
+            }
+        });
+    }
 
     function calcImageDimensions(bbox4326) {
         const [minLon, minLat, maxLon, maxLat] = bbox4326;
@@ -767,7 +930,6 @@ window.onload = function () {
         };
     }
 
- 
 
     if (fetchCopernicusBtn) {
         fetchCopernicusBtn.addEventListener('click', async function () {
@@ -778,7 +940,6 @@ window.onload = function () {
             const selectedMode = vizModeSelect ? vizModeSelect.value : 'b02';
             currentAnalysisMode = selectedMode;
 
-            // Actualizam eticheta butonului de analiza
             const analyzeLabel = selectedMode === 'ndvi' ? 'Analizează NDVI' : 'Analizează B02';
             if (analyzeBtn) analyzeBtn.textContent = analyzeLabel;
 
@@ -853,7 +1014,7 @@ window.onload = function () {
                             projection: map.getView().getProjection()
                         }),
                         opacity: 0.85,
-                        zIndex: 5
+                        zIndex: 1
                     });
                     map.addLayer(sentinelImageLayer);
                     setDataExtent(imageExtent3857);
