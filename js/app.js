@@ -51,9 +51,10 @@ window.onload = function () {
         if (percent <= 25) return '🌤️ Parțial înnorat';
         if (percent <= 50) return '⛅ Moderat înnorat';
         if (percent <= 75) return '🌥️ Predominant înnorat';
-        return 'Înnorare ridicată';
+        return '☁️ Înnorare ridicată';
     }
 
+  
 
     function satelliteStyleFn(feature) {
         const cc = feature.get('eo:cloud_cover') ?? feature.get('cloudCover') ?? null;
@@ -68,7 +69,7 @@ window.onload = function () {
     const satelliteLayer = new ol.layer.Vector({ source: satelliteSource, style: satelliteStyleFn });
     map.addLayer(satelliteLayer);
 
-    let sentinelImageLayer = new ol.layer.Image({ source: null });
+    let sentinelImageLayer = new ol.layer.Image({ source: null, zIndex: 5 });
     map.addLayer(sentinelImageLayer);
 
     const vectorSource = new ol.source.Vector();
@@ -93,17 +94,35 @@ window.onload = function () {
     map.addLayer(intersectionLayer);
 
     const drawSource = new ol.source.Vector();
+
+    const drawStyleNormal = new ol.style.Style({
+        fill: new ol.style.Fill({ color: 'rgba(0, 255, 200, 0.15)' }),
+        stroke: new ol.style.Stroke({ color: '#00ffc8', width: 2.5 }),
+        image: new ol.style.Circle({
+            radius: 7,
+            fill: new ol.style.Fill({ color: '#00ffc8' }),
+            stroke: new ol.style.Stroke({ color: '#005a47', width: 1.5 })
+        })
+    });
+
     const drawLayer = new ol.layer.Vector({
         source: drawSource,
-        style: new ol.style.Style({
-            fill: new ol.style.Fill({ color: 'rgba(255, 204, 51, 0.2)' }),
-            stroke: new ol.style.Stroke({ color: '#ffcc33', width: 2.5 }),
-            image: new ol.style.Circle({
-                radius: 7,
-                fill: new ol.style.Fill({ color: '#ffcc33' }),
-                stroke: new ol.style.Stroke({ color: '#7c4a03', width: 1.5 })
-            })
-        })
+        style: function(feature) {
+            if (sentinelBbox4326 && feature.getGeometry && feature.getGeometry().getType() === 'Polygon') {
+                return [
+                    new ol.style.Style({
+                        fill: new ol.style.Fill({ color: 'rgba(0, 255, 200, 0.2)' }),
+                        stroke: new ol.style.Stroke({ color: '#ffffff', width: 3.5 })
+                    }),
+                    new ol.style.Style({
+                        fill: new ol.style.Fill({ color: 'rgba(0, 255, 200, 0.2)' }),
+                        stroke: new ol.style.Stroke({ color: '#00ffc8', width: 2, lineDash: [10, 5] })
+                    })
+                ];
+            }
+            return drawStyleNormal;
+        },
+        zIndex: 50
     });
     map.addLayer(drawLayer);
 
@@ -121,7 +140,7 @@ window.onload = function () {
     });
     map.addLayer(searchMarkerLayer);
 
-
+  
 
     let sentinelCanvas = null;      
     let sentinelBbox4326 = null;
@@ -135,8 +154,7 @@ window.onload = function () {
     const b02ChartContainer = document.getElementById('b02-chart-container');
     const vizModeSelect = document.getElementById('viz-mode');
 
-   
-
+  
     function storeSentinelImageInCanvas(imageUrl, bbox4326, width, height) {
         sentinelBbox4326 = bbox4326;
         sentinelImgW = width;
@@ -151,12 +169,13 @@ window.onload = function () {
             const ctx = sentinelCanvas.getContext('2d');
             ctx.drawImage(img, 0, 0, width, height);
             analyzeBtn.disabled = false;
+            drawLayer.changed();
             console.log("Canvas analiza pregatit.");
         };
         img.src = imageUrl;
     }
 
-  
+   
 
     function analyzeSpectral() {
         if (!sentinelCanvas || !sentinelBbox4326) {
@@ -203,7 +222,7 @@ window.onload = function () {
                 if (cx < 0 || cy < 0 || cx >= sentinelImgW || cy >= sentinelImgH) continue;
 
                 const pixel = ctx.getImageData(cx, cy, 1, 1).data;
-                rawValues.push(pixel[0]); 
+                rawValues.push(pixel[0]); // canal R (grayscale pentru B02 si NDVI analysis)
             }
         }
 
@@ -248,8 +267,9 @@ window.onload = function () {
     }
 
     function buildNdviHistogram(ndviValues) {
+        // 10 bins intre -1 si +1
         const BINS = 10;
-        const binSize = 2 / BINS; 
+        const binSize = 2 / BINS; // fiecare bin = 0.2 unitati NDVI
         const counts = new Array(BINS).fill(0);
         ndviValues.forEach(v => {
             const bin = Math.min(Math.floor((v + 1) / binSize), BINS - 1);
@@ -284,6 +304,8 @@ window.onload = function () {
     function renderHistogram(labels, counts, stats, title, bgColor, borderColor, xLabel, yLabel) {
         b02Panel.classList.add('expanded');
         b02ChartContainer.classList.remove('hidden');
+        const hint = document.getElementById('analyze-hint');
+        if (hint) hint.style.display = 'none';
 
         if (b02ChartInstance) b02ChartInstance.destroy();
 
@@ -341,6 +363,7 @@ window.onload = function () {
         analyzeBtn.addEventListener('click', analyzeSpectral);
     }
 
+  
 
     const cloudPanel = document.getElementById('cloud-panel');
 
@@ -405,8 +428,7 @@ window.onload = function () {
         }
     });
 
-
-
+ 
     let uploadedExtent = null;
     let dataExtent = null;
     const btnRecenter = document.getElementById('btn-recenter');
@@ -464,6 +486,7 @@ window.onload = function () {
         };
         reader.readAsText(file);
     });
+
 
 
     const clearSearchBtn = document.getElementById('clear-search');
@@ -537,6 +560,8 @@ window.onload = function () {
             $('#search-results').hide();
         }
     });
+
+
 
     let selectedFeaturesArray = [];
     const selectedStyle = new ol.style.Style({
@@ -648,6 +673,7 @@ window.onload = function () {
         }
     });
 
+    
 
     let drawInteraction, snapInteraction;
     const drawTypeSelect = document.getElementById('draw-type');
@@ -691,7 +717,7 @@ window.onload = function () {
 
     function resetSentinelImageLayer() {
         map.removeLayer(sentinelImageLayer);
-        sentinelImageLayer = new ol.layer.Image({ source: null });
+        sentinelImageLayer = new ol.layer.Image({ source: null, zIndex: 5 });
         map.addLayer(sentinelImageLayer);
     }
 
@@ -726,7 +752,7 @@ window.onload = function () {
         });
     }
 
-   
+    
 
     function calcImageDimensions(bbox4326) {
         const [minLon, minLat, maxLon, maxLat] = bbox4326;
@@ -741,6 +767,7 @@ window.onload = function () {
         };
     }
 
+ 
 
     if (fetchCopernicusBtn) {
         fetchCopernicusBtn.addEventListener('click', async function () {
@@ -751,6 +778,7 @@ window.onload = function () {
             const selectedMode = vizModeSelect ? vizModeSelect.value : 'b02';
             currentAnalysisMode = selectedMode;
 
+            // Actualizam eticheta butonului de analiza
             const analyzeLabel = selectedMode === 'ndvi' ? 'Analizează NDVI' : 'Analizează B02';
             if (analyzeBtn) analyzeBtn.textContent = analyzeLabel;
 
@@ -824,13 +852,13 @@ window.onload = function () {
                             imageExtent: imageExtent3857,
                             projection: map.getView().getProjection()
                         }),
-                        opacity: 0.85
+                        opacity: 0.85,
+                        zIndex: 5
                     });
                     map.addLayer(sentinelImageLayer);
                     setDataExtent(imageExtent3857);
                     console.log("Imagine afișată cu succes!");
 
-                    // 2. Imaginea de ANALIZA (B02 sau NDVI grayscale, pentru canvas sampling)
                     const analysisEvalscript = selectedMode === 'ndvi' ? EVALSCRIPTS.ndvi_analysis : EVALSCRIPTS.b02;
                     const analysisUrl = selectedMode === 'b02'
                         ? displayUrl  // refolosim aceeasi imagine, evitam un API call in plus

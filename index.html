@@ -184,6 +184,7 @@
             </div>
             <div class="viz-mode-desc" id="viz-mode-desc">Banda albastru (490nm), grayscale</div>
 
+            <!-- Legenda NDVI - apare doar cand e selectat NDVI -->
             <div class="ndvi-legend" id="ndvi-legend">
                 <div class="ndvi-legend-bar"></div>
                 <div class="ndvi-legend-labels">
@@ -213,6 +214,9 @@
             </label>
             <div id="b02-panel">
                 <button id="btn-analyze-b02" type="button" disabled>Analizează B02</button>
+                <p id="analyze-hint" style="font-size:10px;color:#475569;text-align:center;margin:0 0 8px;line-height:1.4;">
+                    Desenați un poligon peste imaginea satelitară, apoi apăsați butonul.
+                </p>
                 <div id="b02-chart-container" class="hidden">
                     <canvas id="b02-chart"></canvas>
                     <div class="b02-stats-grid" id="b02-stats">
