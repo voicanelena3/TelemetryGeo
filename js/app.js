@@ -132,7 +132,7 @@ window.onload = function () {
         style: new ol.style.Style({
             image: new ol.style.Circle({
                 radius: 8,
-                fill: new ol.style.Fill({ color: '#ff3b3b' }),
+                fill: new ol.style.Fill({ color: '#a855f7' }),
                 stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
             })
         }),
@@ -417,10 +417,12 @@ window.onload = function () {
             tooltip.style.display = 'block';
             tooltip.style.left = (e.originalEvent.pageX + 14) + 'px';
             tooltip.style.top = (e.originalEvent.pageY - 10) + 'px';
-            map.getTargetElement().style.cursor = 'pointer';
+            if (!document.getElementById('map').classList.contains('drawing-mode')) {
+                map.getTargetElement().style.cursor = 'pointer';
+            }
         } else {
             tooltip.style.display = 'none';
-            if (!drawTypeSelect || drawTypeSelect.value === 'None' || drawTypeSelect.value === 'Navigare liberă') {
+            if (!document.getElementById('map').classList.contains('drawing-mode')) {
                 map.getTargetElement().style.cursor = '';
             }
         }
@@ -683,11 +685,15 @@ window.onload = function () {
         if (!drawTypeSelect) return;
         let value = drawTypeSelect.value;
         if (value === 'Navigare liberă') value = 'None';
+        const mapEl = document.getElementById('map');
         if (value !== 'None') {
             drawInteraction = new ol.interaction.Draw({ source: drawSource, type: value });
             map.addInteraction(drawInteraction);
             snapInteraction = new ol.interaction.Snap({ source: drawSource });
             map.addInteraction(snapInteraction);
+            mapEl.classList.add('drawing-mode');
+        } else {
+            mapEl.classList.remove('drawing-mode');
         }
     }
 
