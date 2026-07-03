@@ -14,7 +14,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
     <style>
-        /* === MOD VIZUALIZARE === */
         .viz-mode-box {
             padding: 0 12px;
         }
@@ -68,7 +67,6 @@
             transition: color 0.2s;
         }
 
-        /* === PANEL ANALIZA === */
         .analysis-box { padding: 0 12px; }
         .analysis-box > label {
             display: flex; align-items: center; gap: 8px;
@@ -113,7 +111,6 @@
         .b02-stat-label { font-size: 9px; color: #718096; text-transform: uppercase; letter-spacing: 0.06em; }
         .b02-stat-value { font-size: 14px; font-weight: 700; color: #63b3ed; margin-top: 2px; }
 
-        /* === LEGENDA NDVI === */
         .ndvi-legend {
             display: none;
             margin-top: 8px;
@@ -159,7 +156,6 @@
 
         <hr>
 
-        <!-- UPLOAD + CAUTA DATE -->
         <div class="upload-box">
             <label for="json-file">
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -172,7 +168,6 @@
             <input type="file" id="json-file" accept=".json">
         </div>
 
-        <!-- MOD VIZUALIZARE -->
         <div class="viz-mode-box" style="margin-top: 12px;">
             <label>
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -180,7 +175,6 @@
                 </svg>
                 <b>Mod vizualizare</b>
             </label>
-            <!-- hidden input care tine modul curent -->
             <input type="hidden" id="viz-mode" value="b02">
             <div class="viz-mode-grid">
                 <button class="viz-mode-btn active" data-mode="b02" data-desc="Banda albastru (490nm), grayscale">B02 Grayscale</button>
@@ -211,7 +205,6 @@
 
         <hr>
 
-        <!-- PANEL ANALIZA SPECTRALA -->
         <div class="analysis-box">
             <label>
                 <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -379,7 +372,6 @@
     <script src="js/copernicus-api.js"></script>
     <script src="js/app.js"></script>
 
-    <!-- Logica butoanelor de mod vizualizare -->
     <script>
         document.querySelectorAll('.viz-mode-btn').forEach(function(btn) {
             btn.addEventListener('click', function() {
