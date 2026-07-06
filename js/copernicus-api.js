@@ -136,7 +136,7 @@ async function fetchSentinelImage(bbox, dateFrom, dateTo, width, height, evalscr
 
 
 
-async function searchSentinelProducts(intersectsGeometry) {
+async function searchSentinelProducts(intersectsGeometry, dateFrom, dateTo) {
     const token = await getAccessToken();
 
     const response = await fetch(
@@ -149,7 +149,7 @@ async function searchSentinelProducts(intersectsGeometry) {
             },
             body: JSON.stringify({
                 "collections": ["sentinel-2-l1c"],
-                "datetime": "2024-06-01T00:00:00Z/2024-06-30T23:59:59Z",
+                "datetime": `${dateFrom}/${dateTo}`,
                 "intersects": intersectsGeometry,
                 "limit": 1
             })

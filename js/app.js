@@ -1044,8 +1044,26 @@ window.onload = function () {
             }
 
             try {
-                console.log("Se caută produse Sentinel...");
-                const products = await searchSentinelProducts(targetGeoJSON);
+                // Citim luna selectata din UI
+                const fetchMonthInput = document.getElementById('fetch-month');
+                const selectedMonth = fetchMonthInput ? fetchMonthInput.value : '';
+                let dateFrom, dateTo;
+                if (selectedMonth) {
+                    const [fy, fm] = selectedMonth.split('-');
+                    const lastDay = new Date(parseInt(fy), parseInt(fm), 0).getDate();
+                    dateFrom = `${fy}-${fm}-01T00:00:00Z`;
+                    dateTo   = `${fy}-${fm}-${String(lastDay).padStart(2,'0')}T23:59:59Z`;
+                } else {
+                    const now = new Date(); now.setMonth(now.getMonth() - 1);
+                    const fy = now.getFullYear();
+                    const fm = String(now.getMonth() + 1).padStart(2, '0');
+                    const lastDay = new Date(fy, now.getMonth() + 1, 0).getDate();
+                    dateFrom = `${fy}-${fm}-01T00:00:00Z`;
+                    dateTo   = `${fy}-${fm}-${String(lastDay).padStart(2,'0')}T23:59:59Z`;
+                }
+
+                console.log(`Se caută produse Sentinel pentru ${dateFrom} → ${dateTo}...`);
+                const products = await searchSentinelProducts(targetGeoJSON, dateFrom, dateTo);
 
                 if (!products || products.length === 0) {
                     alert("Nu s-au găsit produse Sentinel 2 în această zonă.");
@@ -1070,8 +1088,6 @@ window.onload = function () {
                 const geomFeature = geojsonFormat.readFeature(firstProduct.geometry, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:4326' });
                 const bbox4326 = geomFeature.getGeometry().getExtent();
                 const { w: imgW, h: imgH } = calcImageDimensions(bbox4326);
-                const dateFrom = "2024-06-01T00:00:00Z";
-                const dateTo = "2024-06-30T23:59:59Z";
 
                 try {
                     console.log(`Se generează imaginea [${selectedMode}]...`);
