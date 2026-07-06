@@ -1111,4 +1111,30 @@ window.onload = function () {
             }
         });
     }
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const themeToggleIcon = document.getElementById('theme-toggle-icon');
+
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+        if (themeToggleIcon) themeToggleIcon.textContent = '☀️';
+    }
+
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', function() {
+            document.body.classList.toggle('light-theme');
+            
+            const isLight = document.body.classList.contains('light-theme');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            
+            if (themeToggleIcon) {
+                themeToggleIcon.textContent = isLight ? '☀️' : '🌙';
+            }
+            
+            if (b02ChartInstance) {
+                b02ChartInstance.options.plugins.title.color = isLight ? '#0f172a' : '#e2e8f0';
+                b02ChartInstance.update();
+            }
+        });
+    }
 };

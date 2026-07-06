@@ -127,12 +127,41 @@
             display: flex; justify-content: space-between;
             font-size: 9px; color: #64748b; padding: 3px 4px 0;
         }
+
+        /* Stil Buton Schimbare Temă */
+        .theme-toggle-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        #theme-toggle {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 5px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        #theme-toggle:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #38bdf8;
+        }
     </style>
 </head>
 
 <body>
     <div id="sidebar">
-        <h2>Control Panel</h2>
+        
+        <div class="theme-toggle-wrapper">
+            <h2 style="margin: 0;">Control Panel</h2>
+            <button id="theme-toggle" title="Comută între Light și Dark Theme">
+                <span id="theme-toggle-icon" style="font-size: 14px; line-height: 1;">🌙</span>
+            </button>
+        </div>
 
         <div class="search-box">
             <label for="search">
