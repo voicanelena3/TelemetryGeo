@@ -53,6 +53,30 @@ window.onload = function () {
         return 'Înnorare ridicată';
     }
 
+    function precipColor(mm, alpha) {
+        mm = Math.max(0, Math.min(mm, 30));
+        let r, g, b;
+        if (mm <= 10) {
+            const t = mm / 10;
+            r = Math.round(34 + t * (255 - 34));
+            g = Math.round(197 - t * 47);
+            b = Math.round(94 - t * 94);
+        } else {
+            const t = (mm - 10) / 20;
+            r = 255; g = Math.round(150 - t * 150); b = 0;
+        }
+        return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    function precipLabel(mm) {
+        if (mm === null || mm === undefined) return '— Date indisponibile';
+        if (mm < 0.1) return '☀️ Fără precipitații';
+        if (mm < 2)   return '🌦️ Precipitații ușoare';
+        if (mm < 10)  return '🌧️ Precipitații moderate';
+        if (mm < 20)  return '⛈️ Precipitații intense';
+        return '🌊 Precipitații foarte intense';
+    }
+
     function satelliteStyleFn(feature) {
         const cc = feature.get('eo:cloud_cover') ?? feature.get('cloudCover') ?? null;
         const percent = cc !== null ? parseFloat(cc) : 50;
@@ -340,7 +364,7 @@ window.onload = function () {
         cloudPanel.style.display = 'none';
     });
 
-    function showCloudPanel(feature) {
+    async function showCloudPanel(feature) {
         const cc = feature.get('eo:cloud_cover') ?? feature.get('cloudCover') ?? null;
         const datetime = feature.get('datetime') ?? feature.get('acquisitionDate') ?? null;
         const id = feature.get('id') ?? '—';
@@ -348,9 +372,20 @@ window.onload = function () {
         const cpId = id.length > 32 ? id.substring(0, 32) + '…' : id;
 
         document.getElementById('cp-id').textContent = cpId;
-        document.getElementById('cp-date').textContent = datetime
-            ? (isNaN(new Date(datetime)) ? datetime : new Date(datetime).toLocaleDateString('ro-RO', { year: 'numeric', month: 'long', day: 'numeric' }))
-            : '—';
+
+        let dateStr = null;
+        if (datetime) {
+            const d = new Date(datetime);
+            if (!isNaN(d)) {
+                document.getElementById('cp-date').textContent =
+                    d.toLocaleDateString('ro-RO', { year: 'numeric', month: 'long', day: 'numeric' });
+                dateStr = d.toISOString().split('T')[0];
+            } else {
+                document.getElementById('cp-date').textContent = datetime;
+            }
+        } else {
+            document.getElementById('cp-date').textContent = '—';
+        }
 
         if (percent !== null) {
             document.getElementById('cp-cc').textContent = percent.toFixed(1) + '%';
@@ -364,7 +399,46 @@ window.onload = function () {
             document.getElementById('cp-bar').style.width = '0%';
         }
 
+        document.getElementById('cp-precip').textContent = '⏳ Se încarcă...';
+        document.getElementById('cp-precip-label').textContent = '';
+        document.getElementById('cp-precip-bar').style.width = '0%';
+
         cloudPanel.style.display = 'block';
+
+        if (dateStr && feature.getGeometry()) {
+            try {
+                const extent = feature.getGeometry().getExtent();
+                const centerProj = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+                const lonLat = ol.proj.toLonLat(centerProj, map.getView().getProjection());
+                const lon = lonLat[0].toFixed(4);
+                const lat = lonLat[1].toFixed(4);
+
+                const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${dateStr}&end_date=${dateStr}&daily=precipitation_sum&timezone=UTC`;
+                const resp = await fetch(url);
+
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                const mm = data.daily?.precipitation_sum?.[0];
+
+                if (mm !== null && mm !== undefined) {
+                    document.getElementById('cp-precip').textContent = mm.toFixed(1) + ' mm';
+                    document.getElementById('cp-precip-label').textContent = precipLabel(mm);
+                    const precipBar = document.getElementById('cp-precip-bar');
+                    const pct = Math.min((mm / 30) * 100, 100);
+                    precipBar.style.width = pct + '%';
+                    precipBar.style.background = `linear-gradient(90deg,${precipColor(0, 0.9)},${precipColor(mm, 0.9)})`;
+                } else {
+                    document.getElementById('cp-precip').textContent = 'Indisponibil';
+                    document.getElementById('cp-precip-label').textContent = '— Date lipsă pentru această dată';
+                }
+            } catch (err) {
+                console.warn("Eroare precipitații Open-Meteo:", err);
+                document.getElementById('cp-precip').textContent = 'Eroare';
+                document.getElementById('cp-precip-label').textContent = '— Nu s-au putut obține datele';
+            }
+        } else {
+            document.getElementById('cp-precip').textContent = '— Dată indisponibilă';
+        }
     }
 
     const tooltip = document.getElementById('map-tooltip');
@@ -929,7 +1003,6 @@ window.onload = function () {
             h: Math.min(Math.max(Math.ceil(hM / MAX_RES), 64), MAX_PX)
         };
     }
-
 
     if (fetchCopernicusBtn) {
         fetchCopernicusBtn.addEventListener('click', async function () {
