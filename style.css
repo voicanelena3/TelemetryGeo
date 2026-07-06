@@ -229,16 +229,42 @@ html, body {
 .draw-controls {
     display: flex;
     gap: 10px;
-    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 #draw-type {
-    flex-grow: 1;
-    padding: 10px 12px;
+    width: calc(50% - 5px); 
+    height: 40px; 
+    padding: 0 10px;
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     color: #ffffff;
+    cursor: pointer;
+    font-size: 13px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+#clear-draw {
+    width: calc(50% - 5px); 
+    height: 40px; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background-color: rgba(239, 68, 68, 0.14);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 8px;
+    padding: 0 10px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    white-space: nowrap;
+    box-sizing: border-box;
 }
 
 #stats-panel {
@@ -389,40 +415,6 @@ html, body {
     color: #fff;
 }
 
-#clear-draw {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    background-color: rgba(239, 68, 68, 0.14);
-    color: #f87171;
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    border-radius: 8px;
-    padding: 10px 16px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.25s ease;
-    white-space: nowrap;
-}
-
-#clear-draw svg {
-    width: 14px;
-    height: 14px;
-    stroke: currentColor;
-    flex-shrink: 0;
-}
-
-#clear-draw:hover {
-    background-color: #ef4444;
-    color: #fff;
-    border-color: #ef4444;
-    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
-}
-
-#clear-draw:active {
-    transform: scale(0.97);
-}
-
 .mouse-position-box {
     position: absolute;
     bottom: 16px;
@@ -471,14 +463,14 @@ html, body {
     border-color: #cbd5e1;
 }
 
-
+/* REVENIT LA DESIGNUL MIC ORIGINAL PENTRU RECENTRARE */
 #btn-recenter {
     position: absolute;
     top: 8px;
     right: 48px;      
     z-index: 5;
-    width: 30px;
-    height: 30px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     display: flex;
     align-items: center;
@@ -649,43 +641,43 @@ html, body {
     transition: bottom 0.2s ease;
 }
 
-#legend h4{
-    margin:0 0 12px;
-    font-size:15px;
+#legend h4 {
+    margin: 0 0 12px;
+    font-size: 15px;
 }
 
-.legend-item{
-    display:flex;
-    align-items:center;
-    margin-bottom:10px;
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
 }
 
-.legend-item:last-child{
-    margin-bottom:0;
+.legend-item:last-child {
+    margin-bottom: 0;
 }
 
-.legend-color{
-    width:18px;
-    height:18px;
-    margin-right:10px;
-    border-radius:3px;
-    border:1px solid white;
+.legend-color {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    border-radius: 3px;
+    border: 1px solid white;
 }
 
-.legend-upload{
-    background:#3388ff;
+.legend-upload {
+    background: #3388ff;
 }
 
-.legend-copernicus{
-    background:#ff5500;
+.legend-copernicus {
+    background: #ff5500;
 }
 
-.legend-intersection{
-    background:#ff0000;
+.legend-intersection {
+    background: #ff0000;
 }
 
-.legend-draw{
-    background:#ffcc33;
+.legend-draw {
+    background: #ffcc33;
 }
 
 .legend-search-marker {
