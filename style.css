@@ -1103,3 +1103,69 @@ html, body {
 .compare-stat-value { font-size: 12px; font-weight: 700; color: #e2e8f0; }
 .compare-stat-value.positive { color: #4ade80; }
 .compare-stat-value.negative { color: #f87171; }
+
+:root {
+    --bg-main: radial-gradient(circle at 20% 20%, #1e2530 0%, #11151c 55%, #0a0d12 100%);
+    --bg-sidebar: linear-gradient(165deg, rgba(30, 41, 59, 0.95), rgba(20, 28, 41, 0.95));
+    --bg-input: rgba(15, 23, 42, 0.6);
+    --bg-card: rgba(255, 255, 255, 0.04);
+    --border-color: rgba(255, 255, 255, 0.08);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --text-darker: #475569;
+    --panel-shadow: 0 20px 45px rgba(0, 0, 0, 0.55);
+}
+
+body.light-theme {
+    --bg-main: radial-gradient(circle at 20% 20%, #f1f5f9 0%, #e2e8f0 55%, #cbd5e1 100%);
+    --bg-sidebar: linear-gradient(165deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.95));
+    --bg-input: rgba(255, 255, 255, 0.9);
+    --bg-card: rgba(15, 23, 42, 0.04);
+    --border-color: rgba(15, 23, 42, 0.12);
+    --text-main: #0f172a;
+    --text-muted: #475569;
+    --text-darker: #94a3b8;
+    --panel-shadow: 0 20px 45px rgba(15, 23, 42, 0.15);
+}
+
+html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg-main) !important; /* Folosește variabila */
+    overflow: hidden;
+    transition: background 0.3s ease;
+}
+
+#sidebar {
+    background: var(--bg-sidebar) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: var(--panel-shadow) !important;
+    transition: background 0.3s, color 0.3s, border-color 0.3s;
+}
+
+#sidebar hr {
+    background: linear-gradient(90deg, transparent, var(--border-color), transparent) !important;
+}
+
+.search-box input, .temporal-select, #draw-type {
+    background: var(--bg-input) !important;
+    color: var(--text-main) !important;
+    border-color: var(--border-color) !important;
+}
+
+.section-label, .search-box label, .upload-box label, .draw-box label, .temporal-label, .compare-stat-label, .viz-mode-desc {
+    color: var(--text-muted) !important;
+}
+
+.b02-stat-card, .compare-chart-wrap {
+    background: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+}
+
+#legend, #cloud-panel, #stats-panel {
+    background: var(--bg-sidebar) !important;
+    color: var(--text-main) !important;
+    border-color: var(--border-color) !important;
+    box-shadow: var(--panel-shadow) !important;
+}
