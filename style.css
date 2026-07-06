@@ -229,8 +229,10 @@ html, body {
 .draw-controls {
     display: flex;
     gap: 10px;
-    width: 100%;
-    box-sizing: border-box;
+}
+
+.draw-controls > * {
+    flex: 1;
 }
 
 #draw-type {
@@ -248,22 +250,27 @@ html, body {
 }
 
 #clear-draw {
-    width: calc(50% - 5px); 
-    height: 40px; 
+    flex: 1;
+    height: 40px;
+
     display: flex;
-    align-items: center;
     justify-content: center;
+    align-items: center;
     gap: 6px;
+
+    padding: 0;
+    margin: 0;
+
     background-color: rgba(239, 68, 68, 0.14);
     color: #f87171;
     border: 1px solid rgba(239, 68, 68, 0.4);
     border-radius: 8px;
-    padding: 0 10px;
+
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.25s ease;
-    white-space: nowrap;
+
     box-sizing: border-box;
 }
 
@@ -463,7 +470,6 @@ html, body {
     border-color: #cbd5e1;
 }
 
-/* REVENIT LA DESIGNUL MIC ORIGINAL PENTRU RECENTRARE */
 #btn-recenter {
     position: absolute;
     top: 8px;
