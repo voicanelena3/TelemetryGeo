@@ -33,7 +33,7 @@ async function getAccessToken() {
 }
 
 
-
+//Colectia de scripturi personalizate Evalscript executate direct pe infrastructura cloud Sentinel Hub
 const EVALSCRIPTS = {
 
     b02: `//VERSION=3
