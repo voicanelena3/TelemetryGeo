@@ -1,12 +1,12 @@
 window.onload = function () {
     const mousePositionControl = new ol.control.MousePosition({
-        coordinateFormat: ol.coordinate.createStringXY(4),
+        coordinateFormat: ol.coordinate.createStringXY(4),//aici formatam la 4 zecimale
         projection: 'EPSG:4326',
         className: 'custom-mouse-position',
         target: document.getElementById('mouse-position'),
-        undefinedHTML: '&nbsp;'
+        undefinedHTML: '&nbsp;'// textul afisat cand nu este pozitie mouse
     });
-
+//Instantierea hartii
     const map = new ol.Map({
         target: 'map',
         layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
@@ -16,6 +16,7 @@ window.onload = function () {
             new ol.control.ZoomSlider(),
             mousePositionControl
         ]),
+        //aici centram harta pe Romania si setam zoom-ul initial
         view: new ol.View({
             center: ol.proj.fromLonLat([25.0, 46.0]),
             zoom: 6.5,
@@ -24,21 +25,24 @@ window.onload = function () {
     });
 
     console.log("Harta și instrumentele de navigare au fost inițializate cu succes!");
-
+//parsere initiale
     const wktFormat = new ol.format.WKT();
     const geojsonFormat = new ol.format.GeoJSON();
 
     function cloudCoverColor(percent, alpha) {
         let r, g, b;
         if (percent <= 25) {
+             // Tranzitie de la verde intens (senin) la galben-auriu
             const t = percent / 25;
             r = Math.round(34 + t * (255 - 34));
             g = Math.round(197 - t * 47);
             b = Math.round(94 - t * 94);
         } else if (percent <= 60) {
+            // Tranzitie de la galben la portocaliu/rosu deschis
             const t = (percent - 25) / 35;
             r = 255; g = Math.round(150 - t * 130); b = 0;
         } else {
+            // Tranzitie de la portocaliu la rosu intens (innoarare ridicata)
             const t = (percent - 60) / 40;
             r = 255; g = Math.round(20 - t * 20); b = 0;
         }
@@ -52,7 +56,10 @@ window.onload = function () {
         if (percent <= 75) return '🌥️ Predominant înnorat';
         return 'Înnorare ridicată';
     }
-
+/**
+     * Functie de stilizare dinamica aplicata caracteristicilor din stratul satelitar.
+     * Citeste metadatele de nori si coloreaza marginile amprentelor spatiale conform starii meteo.
+     */
     function precipColor(mm, alpha) {
         mm = Math.max(0, Math.min(mm, 30));
         let r, g, b;
@@ -86,9 +93,13 @@ window.onload = function () {
         });
     }
 
+    // Sursa si stratul vectorial dedicat afisarii amprentelor poligonale ale scenelor Sentinel
+
     const satelliteSource = new ol.source.Vector();
     const satelliteLayer = new ol.layer.Vector({ source: satelliteSource, style: satelliteStyleFn });
     map.addLayer(satelliteLayer);
+
+    // Stratul de imagine raster destinat afisarii imaginii prelucrate descarcate prin Process API
 
     let sentinelImageLayer = new ol.layer.Image({ source: null, zIndex: 1 });
     map.addLayer(sentinelImageLayer);
@@ -103,6 +114,8 @@ window.onload = function () {
     });
     map.addLayer(vectorLayer);
 
+    // Sursa si stratul vectorial cu prioritate de randare (zIndex mare) pentru suprafetele de intersectie
+
     const intersectionSource = new ol.source.Vector();
     const intersectionLayer = new ol.layer.Vector({
         source: intersectionSource,
@@ -110,10 +123,10 @@ window.onload = function () {
             stroke: new ol.style.Stroke({ color: '#ff0000', width: 4 }),
             fill: new ol.style.Fill({ color: 'rgba(255, 0, 0, 0.5)' })
         }),
-        zIndex: 100
+        zIndex: 100// garanteaza plasarea deasupra celorlalte elemente spatiale
     });
     map.addLayer(intersectionLayer);
-
+    // Sursa si stratul vectorial atasat interactiunilor de desen direct pe harta (Polygon/Box/Point)
     const drawSource = new ol.source.Vector();
     const drawLayer = new ol.layer.Vector({
         source: drawSource,
@@ -129,7 +142,7 @@ window.onload = function () {
         zIndex: 50
     });
     map.addLayer(drawLayer);
-
+    // Sursa si stratul dedicat plasarii markerului rosu generat la cautarea prin Geocoding
     const searchMarkerSource = new ol.source.Vector();
     const searchMarkerLayer = new ol.layer.Vector({
         source: searchMarkerSource,
@@ -155,7 +168,10 @@ window.onload = function () {
     const b02Panel = document.getElementById('b02-panel');
     const b02ChartContainer = document.getElementById('b02-chart-container');
     const vizModeSelect = document.getElementById('viz-mode');
-
+ /**
+     * Incarca asincron o imagine raster satelitara, o injecteaza intr-un element HTML5 Canvas
+     * si activeaza butoanele de analiza radiometrica odata ce incarcarea s-a finalizat cu succes.
+     */
     function storeSentinelImageInCanvas(imageUrl, bbox4326, width, height) {
         sentinelBbox4326 = bbox4326;
         sentinelImgW = width;
@@ -174,7 +190,10 @@ window.onload = function () {
         };
         img.src = imageUrl;
     }
-
+ /**
+     * Functia principala de analiza spectrala. Executa o esantionare matriceala (100x100) pe baza 
+     * poligonului utilizatorului si extrage informatia binara a pixelilor corespunzatori din Canvas.
+     */
     function analyzeSpectral() {
         if (!sentinelCanvas || !sentinelBbox4326) {
             alert("Nu există imagine satelitară. Apăsați mai întâi 'Caută Date'.");
@@ -195,6 +214,7 @@ window.onload = function () {
             return;
         }
 
+        // Clonarea si reproiectarea geometriei in coordonate geografice EPSG:4326
         const geom4326 = geom.clone().transform(map.getView().getProjection(), 'EPSG:4326');
         const turfPoly = turf.feature({ type: 'Polygon', coordinates: geom4326.getCoordinates() });
 
@@ -229,6 +249,7 @@ window.onload = function () {
             return;
         }
 
+        // Conversia inversa din codificarea de culoare (0-255) inapoi in indici NDVI rationali (-1 la +1)
         const isNdvi = currentAnalysisMode === 'ndvi';
 
         if (isNdvi) {
@@ -238,11 +259,15 @@ window.onload = function () {
             buildB02Histogram(rawValues);
         }
     }
-
+    /**
+     * Clasifica valorile intensitatii pixelilor (0-255) in 16 intervale (bins) statistice
+     * si calculeaza indicatorii descriptivi primari pentru histogramele de reflectanță.
+     */
     function buildB02Histogram(pixelValues) {
         const BINS = 16;
         const binSize = 256 / BINS;
         const counts = new Array(BINS).fill(0);
+
         pixelValues.forEach(v => {
             counts[Math.min(Math.floor(v / binSize), BINS - 1)]++;
         });
@@ -263,7 +288,10 @@ window.onload = function () {
             null, null
         );
     }
-
+    /**
+     * Imparte indicii NDVI rationali (-1 la +1) in 10 clase analitice
+     * si asigneaza o paleta cromatică tematică reprezentativa pentru fiecare bin.
+     */
     function buildNdviHistogram(ndviValues) {
         const BINS = 10;
         const binSize = 2 / BINS; 
@@ -297,7 +325,10 @@ window.onload = function () {
             'NDVI', 'Frecvență pixeli'
         );
     }
-
+    /**
+     * Initializează sau actualizează componenta grafica Chart.js din Sidebar.
+     * Injectează valorile calculate direct in campurile de text din panoul HTML.
+     */
     function renderHistogram(labels, counts, stats, title, bgColor, borderColor, xLabel, yLabel) {
         b02Panel.classList.add('expanded');
         b02ChartContainer.classList.remove('hidden');
@@ -343,6 +374,8 @@ window.onload = function () {
                 }
             }
         });
+        
+        // Actualizarea dinamica a elementelor text din structura DOM cu statisticile matematice
 
         document.getElementById('b02-stat-pixeli').textContent = stats.n;
         document.getElementById('b02-stat-medie').textContent = typeof stats.mean === 'number' ? stats.mean.toFixed(1) : stats.mean;
@@ -363,7 +396,10 @@ window.onload = function () {
     document.getElementById('cloud-panel-close').addEventListener('click', function () {
         cloudPanel.style.display = 'none';
     });
-
+    /**
+     * Populeaza si afiseaza panoul cu starea norilor (Cloud Cover Metrics)
+     * extras direct din caracteristica selectata pe harta.
+     */
     async function showCloudPanel(feature) {
         const cc = feature.get('eo:cloud_cover') ?? feature.get('cloudCover') ?? null;
         const datetime = feature.get('datetime') ?? feature.get('acquisitionDate') ?? null;
@@ -442,7 +478,10 @@ window.onload = function () {
     }
 
     const tooltip = document.getElementById('map-tooltip');
-
+    /**
+     * Listener la nivelul hartii pentru urmarirea miscarii cursorului.
+     * Gestioneaza afisarea micro-tooltip-ului flotant la trecerea peste poligoanele de satelit.
+     */
     map.on('pointermove', function (e) {
         const feature = map.forEachFeatureAtPixel(e.pixel, function (f, layer) {
             if (layer === satelliteLayer) return f;
@@ -474,7 +513,9 @@ window.onload = function () {
     let uploadedExtent = null;
     let dataExtent = null;
     const btnRecenter = document.getElementById('btn-recenter');
-
+    /**
+     * Seteaza si valideaza extinderea geografica curenta a hărtii pentru a activa functia de Recentrare.
+     */
     function setDataExtent(extent) {
         if (!extent || extent.some(v => !isFinite(v))) return;
         dataExtent = extent;
@@ -487,7 +528,10 @@ window.onload = function () {
             map.getView().fit(dataExtent, { duration: 1000, padding: [50, 50, 50, 50], maxZoom: 16 });
         });
     }
-
+     /**
+     * Handler atasat incarcarii de fisiere prin input-ul local.
+     * Analizeaza automat structura interna a fisierului (Dual Parser GeoJSON/WKT).
+     */
     $('#json-file').on('change', function (e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -549,7 +593,10 @@ window.onload = function () {
             updateClearSearchVisibility();
         });
     }
-
+     /**
+     * Modulul de cautare si geocodare asincrona conectat la API-ul global GeoNames.
+     * Implementeaza un mecanism de temporizare (Debounce de 300ms) pentru protejarea serverului.
+     */
     $('#search').on('input', function () {
         const query = $(this).val().trim();
         const resultsContainer = $('#search-results');
@@ -613,12 +660,17 @@ window.onload = function () {
     const percent2ValEl = document.getElementById('percent2-val');
     const progress1BarEl = document.getElementById('progress1-bar');
     const progress2BarEl = document.getElementById('progress2-bar');
-
+    /**
+     * Determina lungimea diagonalei in kilometri a bounding-box-ului unei caracteristici date.
+     */
     function bboxDiagonalKm(f) {
         const bbox = turf.bbox(f);
         return turf.distance(turf.point([bbox[0], bbox[1]]), turf.point([bbox[2], bbox[3]]), { units: 'kilometers' });
     }
-
+     /**
+     * Curata si transforma orice geometrie intr-un poligon valid din punct de vedere topologic,
+     * aplicand un buffer minim pentru a evita erorile generate de linii nesegmentate sau auto-intersectate.
+     */
     function toIntersectablePolygon(f, other) {
         const t = f.geometry.type;
         if (t === 'Polygon' || t === 'MultiPolygon') return turf.buffer(f, 0, { units: 'kilometers' });
@@ -637,7 +689,10 @@ window.onload = function () {
         const refDiag = Math.max(bboxDiagonalKm(f), other ? bboxDiagonalKm(other) : 0, 0.1);
         return turf.buffer(f, Math.max(refDiag * 0.02, 0.05), { units: 'kilometers' });
     }
-
+    /**
+     * Event listener la click pe harta pentru modul de selectie si calculul intersectiilor (Turf.js).
+     * Intercepteaza selectarea a doua poligoane distincte si le calculeaza suprafata comuna de acoperire.
+     */
     map.on('click', function (e) {
         if (drawTypeSelect && drawTypeSelect.value !== 'None' && drawTypeSelect.value !== 'Navigare liberă') return;
 
@@ -716,7 +771,10 @@ window.onload = function () {
     const clearDrawButton = document.getElementById('clear-draw');
     const exportGeojsonBtn = document.getElementById('btn-export-geojson');
     const fetchCopernicusBtn = document.getElementById('btn-fetch-copernicus');
-
+    /**
+     * Activeaza si ataseaza dinamic pe harta interactiunile de desen si ghidaj magnetizat (Snap),
+     * in functie de tipul de geometrie selectat de utilizator in meniul dropdown.
+     */
     function addDrawInteraction() {
         if (!drawTypeSelect) return;
         let value = drawTypeSelect.value;
@@ -750,7 +808,9 @@ window.onload = function () {
             drawTypeSelect.dispatchEvent(new Event('change'));
         }
     });
-
+    /**
+     * Reseteaza complet si re-creeaza stratul de imagine raster satelitar de pe harta.
+     */
     function resetSentinelImageLayer() {
         map.removeLayer(sentinelImageLayer);
         sentinelImageLayer = new ol.layer.Image({ source: null, zIndex: 1 });
@@ -1004,6 +1064,8 @@ window.onload = function () {
         };
     }
 
+// Verificam daca butonul pentru interogarea si descarcarea datelor Copernicus exista in interfata DOM
+
     if (fetchCopernicusBtn) {
         fetchCopernicusBtn.addEventListener('click', async function () {
             satelliteSource.clear();
@@ -1019,6 +1081,7 @@ window.onload = function () {
             let targetGeoJSON = null;
             const features = drawSource.getFeatures();
 
+            // Cazul 1: Utilizatorul a desenat o arie de interes pe ecran
             if (features.length > 0) {
                 try {
                     const geom = features[0].getGeometry();
@@ -1034,7 +1097,8 @@ window.onload = function () {
                     }
                 } catch (e) { console.error("Eroare conversie geometrie:", e); }
             }
-
+            
+            // Cazul 2: Daca nu s-a desenat nimic, preluam automat limitele vizuale curente ale ecranului (Viewport Fallback)
             if (!targetGeoJSON) {
                 const extent4326 = ol.proj.transformExtent(map.getView().calculateExtent(map.getSize()), map.getView().getProjection(), 'EPSG:4326');
                 targetGeoJSON = {
