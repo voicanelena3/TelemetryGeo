@@ -1,0 +1,8 @@
+services:
+  telemetry-geo:
+    build: .
+    container_name: telemetry-geo-app
+    ports:
+      - "5500:80"
+    volumes:
+      - .:/usr/share/nginx/html
