@@ -4,8 +4,5 @@ services:
     container_name: telemetry-geo-app
     ports:
       - "5500:80"
-    # Volumul de mai jos mapează fișierele tale locale în container.
-    # Acest lucru îți permite să faci modificări în cod (JS/HTML/CSS) local,
-    # iar acestea se vor reflecta imediat în browser fără a fi nevoie să reconstruiești imaginea.
     volumes:
       - .:/usr/share/nginx/html
