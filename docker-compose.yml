@@ -1,8 +1,16 @@
 services:
   telemetry-geo:
     build: .
+    image: telemetry-geo:latest
     container_name: telemetry-geo-app
     ports:
       - "5500:80"
+    restart: unless-stopped
+    # Mod dezvoltare: modificarile din index.html / js / style.css se vad live
+    # (doar refresh in browser). Comenteaza liniile de mai jos pentru a folosi
+    # strict fisierele copiate in imagine.
     volumes:
-      - .:/usr/share/nginx/html
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./style.css:/usr/share/nginx/html/style.css:ro
+      - ./js:/usr/share/nginx/html/js:ro
+      - ./lib:/usr/share/nginx/html/lib:ro
