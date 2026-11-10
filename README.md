@@ -28,3 +28,21 @@ Launch the local server by right-clicking index.html and selecting Open with Liv
 
 Initialize the map by first enabling your browser's CORS extension, then opening the developer console (F12) to verify the startup logs for the widgets.
    
+
+### Running with Docker
+The repository includes a `Dockerfile` (nginx:alpine) and a `docker-compose.yml`. With Docker Desktop running:
+
+```bash
+docker compose up -d --build
+```
+
+Then open http://localhost:5500. Stop it with `docker compose down`.
+
+When served from the container, Nginx proxies the Sentinel Hub API under `/sentinel-hub/` (see `docker/nginx.conf`), so the browser makes same-origin requests and **no CORS extension is needed**. The container exposes a health endpoint at `/health`.
+
+Without Compose:
+
+```bash
+docker build -t telemetry-geo .
+docker run -d -p 5500:80 --name telemetry-geo-app telemetry-geo
+```

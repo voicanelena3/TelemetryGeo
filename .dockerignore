@@ -1,10 +1,13 @@
 .git
 .gitattributes
 .gitignore
+.dockerignore
 Dockerfile
 docker-compose.yml
-.dockerignore
 README.md
 README_DOCKER.md
 .agents/
 .gemini/
+.claude/
+.vscode/
+node_modules/
